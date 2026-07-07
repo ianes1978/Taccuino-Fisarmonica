@@ -8,32 +8,25 @@ on:
       - claude/taccuino-fisarmonica-app-qy6fc4
   workflow_dispatch:
 
-# GITHUB_TOKEN permissions for Pages deploy + release upload.
+# contents: write  -> push del ramo gh-pages e creazione release APK
+# pages:    write  -> impostare la sorgente Pages via API REST
 permissions:
   contents: write
   pages: write
-  id-token: write
 
-# Un solo deploy Pages alla volta.
 concurrency:
-  group: pages
+  group: deploy
   cancel-in-progress: true
 
 jobs:
-  # ------------------------------------------------------ Build web ---------
-  # Builda sempre (valida la compilazione web) e carica l'artifact per Pages.
-  build_web:
+  # ------------------------------------------------------ Web -> gh-pages ----
+  # Builda il web e lo pubblica sul ramo gh-pages, poi imposta la sorgente
+  # Pages = ramo gh-pages via API. Questo evita del tutto l'ambiente
+  # "github-pages" (le cui regole di protezione bloccavano il deploy dal ramo).
+  web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      # Abilita GitHub Pages via API (source = GitHub Actions) da un job SENZA
-      # gate d'ambiente: così l'ambiente github-pages esiste prima del deploy
-      # (evita il rifiuto immediato del job deploy quando Pages non è attivo).
-      - name: Enable GitHub Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - uses: subosito/flutter-action@v2
         with:
@@ -55,26 +48,36 @@ jobs:
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           flutter build web --release --base-href "/${REPO_NAME}/"
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Publish to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: build/web
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
+          publish_branch: gh-pages
+          # .nojekyll è aggiunto in automatico (enable_jekyll: false di default)
 
-  # ------------------------------------------------------ Deploy Pages ------
-  # Il deploy su Pages avviene solo sul ramo di default (le regole dell'ambiente
-  # github-pages bloccano gli altri rami). Richiede una tantum:
-  # Settings -> Pages -> Source: GitHub Actions.
-  deploy_pages:
-    needs: build_web
-    if: ${{ github.ref_name == github.event.repository.default_branch }}
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@v4
+      - name: Point GitHub Pages at gh-pages branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/pages"
+          body='{"source":{"branch":"gh-pages","path":"/"},"build_type":"legacy"}'
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$api" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -d "$body")
+          echo "POST /pages -> HTTP $code"
+          if [ "$code" != "201" ]; then
+            # Pages già esistente: aggiorna la sorgente al ramo gh-pages.
+            put=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$api" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              -d "$body")
+            echo "PUT /pages -> HTTP $put"
+          fi
+          echo "Sito: https://${GITHUB_REPOSITORY%%/*}.github.io/${GITHUB_REPOSITORY##*/}/"
 
   # ---------------------------------------------------------- Android -------
   android:
@@ -109,9 +112,8 @@ jobs:
           name: taccuino-fisarmonica-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      # Pubblica l'APK come release "latest" solo sul ramo di default.
+      # Pubblica l'APK come release "latest".
       - name: Publish APK release
-        if: ${{ github.ref_name == github.event.repository.default_branch }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-latest

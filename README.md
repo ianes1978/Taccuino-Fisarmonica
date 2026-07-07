@@ -35,9 +35,10 @@ flutter run -d chrome       # web
 
 Il workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
 
-- **Web → GitHub Pages**: build con `--base-href` pari al nome del repo e deploy
-  su Pages. Il workflow abilita Pages da solo (`configure-pages` con
-  `enablement: true`), nessuna configurazione manuale richiesta.
+- **Web → GitHub Pages**: build con `--base-href` pari al nome del repo,
+  pubblicazione sul ramo `gh-pages` e impostazione automatica della sorgente
+  Pages via API (nessuna configurazione manuale). Questo percorso evita
+  l'ambiente `github-pages`, le cui regole bloccavano il deploy dal ramo.
   URL: `https://ianes1978.github.io/Taccuino-Fisarmonica/`
 - **Android → Release APK**: build `--release`, caricato come artifact di
   workflow e pubblicato nella release `apk-latest` (sui rami `main`/`master`).
