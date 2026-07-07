@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../widgets/annotation_strip.dart';
 import '../widgets/control_bar.dart';
 import '../widgets/piano_keyboard.dart';
+import '../widgets/score_view.dart';
 
 class HomeScreen extends StatelessWidget {
   final AppState state;
@@ -106,7 +107,9 @@ class _MenuButton extends StatelessWidget {
       color: Palette.panel,
       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
       onSelected: (v) {
-        if (v == 'save') {
+        if (v == 'quicksave') {
+          _quickSave(context, state);
+        } else if (v == 'saveas') {
           _showSaveDialog(context, state);
         } else if (v == 'load') {
           _showLoadSheet(context, state);
@@ -114,9 +117,21 @@ class _MenuButton extends StatelessWidget {
       },
       itemBuilder: (context) => [
         PopupMenuItem(
-          value: 'save',
+          value: 'quicksave',
           child: Row(children: [
-            const Icon(Icons.save_outlined, size: 20, color: Palette.ivory),
+            const Icon(Icons.save, size: 20, color: Palette.ivory),
+            const SizedBox(width: 10),
+            Text(
+                state.loadedName != null
+                    ? 'Salva "${state.loadedName}"'
+                    : 'Salva',
+                style: mono(size: 14)),
+          ]),
+        ),
+        PopupMenuItem(
+          value: 'saveas',
+          child: Row(children: [
+            const Icon(Icons.save_as_outlined, size: 20, color: Palette.ivory),
             const SizedBox(width: 10),
             Text('Salva con nome', style: mono(size: 14)),
           ]),
@@ -133,6 +148,32 @@ class _MenuButton extends StatelessWidget {
       ],
     );
   }
+}
+
+void _quickSave(BuildContext context, AppState state) {
+  if (state.isEmpty) {
+    _toast(context, 'Niente da salvare');
+    return;
+  }
+  final name = state.loadedName;
+  if (name == null) {
+    // Nessun brano caricato: chiedi il nome.
+    _showSaveDialog(context, state);
+    return;
+  }
+  state.saveCurrentAs(name);
+  _toast(context, 'Salvato "$name"');
+}
+
+void _toast(BuildContext context, String msg) {
+  ScaffoldMessenger.of(context)
+    ..clearSnackBars()
+    ..showSnackBar(SnackBar(
+      content: Text(msg, style: mono(size: 13)),
+      backgroundColor: Palette.brassDeep,
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(milliseconds: 1500),
+    ));
 }
 
 Future<void> _showSaveDialog(BuildContext context, AppState state) async {
@@ -251,9 +292,29 @@ void _showLoadSheet(BuildContext context, AppState state) {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
+                                icon: const Icon(Icons.visibility_outlined,
+                                    color: Palette.brass),
+                                tooltip: 'Anteprima',
+                                iconSize: 20,
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => ScoreView(
+                                        entries: s.entries,
+                                        title: s.name,
+                                        italian: state.italian,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              IconButton(
                                 icon: const Icon(Icons.edit_outlined,
                                     color: Palette.muted),
                                 tooltip: 'Rinomina',
+                                iconSize: 20,
+                                visualDensity: VisualDensity.compact,
                                 onPressed: () =>
                                     _showRenameDialog(context, state, s.name),
                               ),
@@ -261,6 +322,8 @@ void _showLoadSheet(BuildContext context, AppState state) {
                                 icon: const Icon(Icons.delete_outline,
                                     color: Palette.muted),
                                 tooltip: 'Elimina',
+                                iconSize: 20,
+                                visualDensity: VisualDensity.compact,
                                 onPressed: () =>
                                     _confirmDelete(context, state, s.name),
                               ),

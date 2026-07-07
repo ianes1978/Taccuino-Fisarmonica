@@ -57,7 +57,11 @@ class AnnotationStrip extends StatelessWidget {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => ScoreView(state: state),
+                        builder: (_) => ScoreView(
+                          entries: List.of(state.sequence),
+                          title: state.loadedName,
+                          italian: state.italian,
+                        ),
                       ),
                     );
                   },

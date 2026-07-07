@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../models/entry.dart';
 import '../models/notation.dart';
-import '../state/app_state.dart';
 import '../theme.dart';
 
 /// Vista a tutto schermo delle note, formattata e con a-capo automatici,
 /// senza tastiera. + / − per ridimensionare il testo.
 class ScoreView extends StatefulWidget {
-  final AppState state;
-  const ScoreView({super.key, required this.state});
+  final List<Entry> entries;
+  final String? title;
+  final bool italian;
+  const ScoreView({
+    super.key,
+    required this.entries,
+    required this.italian,
+    this.title,
+  });
 
   @override
   State<ScoreView> createState() => _ScoreViewState();
@@ -26,7 +33,6 @@ class _ScoreViewState extends State<ScoreView> {
 
   @override
   Widget build(BuildContext context) {
-    final state = widget.state;
     return Scaffold(
       backgroundColor: Palette.bg,
       body: SafeArea(
@@ -48,7 +54,7 @@ class _ScoreViewState extends State<ScoreView> {
                   ),
                   Expanded(
                     child: Text(
-                      state.loadedName ?? 'Anteprima',
+                      widget.title ?? 'Anteprima',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: display(size: 18, weight: FontWeight.w600),
@@ -72,32 +78,26 @@ class _ScoreViewState extends State<ScoreView> {
               ),
             ),
             Expanded(
-              child: AnimatedBuilder(
-                animation: state,
-                builder: (context, _) {
-                  if (state.isEmpty) {
-                    return Center(
+              child: widget.entries.isEmpty
+                  ? Center(
                       child: Text('Nessuna nota.',
                           style: mono(size: 15, color: Palette.muted)),
-                    );
-                  }
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(18),
-                    child: Wrap(
-                      spacing: _size * 0.45,
-                      runSpacing: _size * 0.55,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        for (final e in state.sequence)
-                          _Token(
-                            text: formatEntry(e, italian: state.italian),
-                            size: _size,
-                          ),
-                      ],
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(18),
+                      child: Wrap(
+                        spacing: _size * 0.45,
+                        runSpacing: _size * 0.55,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          for (final e in widget.entries)
+                            _Token(
+                              text: formatEntry(e, italian: widget.italian),
+                              size: _size,
+                            ),
+                        ],
+                      ),
                     ),
-                  );
-                },
-              ),
             ),
           ],
         ),
