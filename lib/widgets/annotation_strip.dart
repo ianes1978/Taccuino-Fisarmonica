@@ -88,22 +88,39 @@ class AnnotationStrip extends StatelessWidget {
                       style: mono(size: 13, color: Palette.muted),
                     ),
                   )
-                : ListView.separated(
+                : ReorderableListView.builder(
                     scrollDirection: Axis.horizontal,
+                    buildDefaultDragHandles: false,
                     itemCount: state.sequence.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, i) => _EntryChip(
-                      entry: state.sequence[i],
-                      italian: state.italian,
-                      isTarget: state.targetIndex == i,
-                      isPlaying: state.playingIndex == i,
-                      chordMode: state.chordMode,
-                      focusMidi: state.targetIndex == i
-                          ? state.effectiveFocusMidi
-                          : null,
-                      onTapChip: () => state.selectEntry(i),
-                      onTapNote: (m) => state.focusNoteInEntry(i, m),
+                    onReorder: state.moveEntry,
+                    proxyDecorator: (child, index, animation) => Material(
+                      color: Colors.transparent,
+                      child: child,
                     ),
+                    itemBuilder: (context, i) {
+                      final entry = state.sequence[i];
+                      // Tieni premuto per spostare; tocco singolo per
+                      // selezionare.
+                      return ReorderableDelayedDragStartListener(
+                        key: ObjectKey(entry),
+                        index: i,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _EntryChip(
+                            entry: entry,
+                            italian: state.italian,
+                            isTarget: state.targetIndex == i,
+                            isPlaying: state.playingIndex == i,
+                            chordMode: state.chordMode,
+                            focusMidi: state.targetIndex == i
+                                ? state.effectiveFocusMidi
+                                : null,
+                            onTapChip: () => state.selectEntry(i),
+                            onTapNote: (m) => state.focusNoteInEntry(i, m),
+                          ),
+                        ),
+                      );
+                    },
                   ),
           ),
         ],

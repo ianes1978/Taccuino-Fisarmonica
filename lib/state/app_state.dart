@@ -114,8 +114,12 @@ class AppState extends ChangeNotifier {
   }
 
   void _appendNote(int midi) {
-    sequence.add(Entry.single(midi));
-    selected = null; // la nuova voce (ultima) diventa corrente
+    // Inserisce SUBITO DOPO la voce bersaglio (default = ultima), così si
+    // possono inserire note anche in mezzo. La nuova voce diventa selezionata.
+    final i = targetIndex;
+    final insertAt = i == null ? 0 : i + 1;
+    sequence.insert(insertAt, Entry.single(midi));
+    selected = insertAt;
     focusMidi = midi;
     _commit();
   }
@@ -164,12 +168,38 @@ class AppState extends ChangeNotifier {
 
   void deleteTarget() {
     final i = targetIndex;
-    if (i != null) {
+    if (i == null) return;
+    final e = sequence[i];
+    final m = effectiveFocusMidi;
+    if (e.midis.length > 1 && m != null) {
+      // Accordo: cancella solo la nota a fuoco.
+      e.removeNote(m);
+      if (e.midis.isEmpty) {
+        sequence.removeAt(i);
+        selected = null;
+        focusMidi = null;
+      } else {
+        focusMidi = e.midis.last;
+      }
+    } else {
+      // Nota singola (o nessun fuoco): cancella l'intera voce.
       sequence.removeAt(i);
       selected = null;
       focusMidi = null;
-      _commit();
     }
+    _commit();
+  }
+
+  /// Sposta una voce (drag & drop nell'annotazione).
+  void moveEntry(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= sequence.length) return;
+    if (newIndex > oldIndex) newIndex -= 1;
+    newIndex = newIndex.clamp(0, sequence.length - 1);
+    final e = sequence.removeAt(oldIndex);
+    sequence.insert(newIndex, e);
+    selected = newIndex;
+    focusMidi = e.midis.isNotEmpty ? e.midis.last : null;
+    _commit();
   }
 
   void selectEntry(int index) {

@@ -14,6 +14,9 @@ salva il lavoro tra un avvio e l'altro.
   **diteggiatura 1–5** per nota, cancella `⌫`, selezione voce toccandola.
 - **Play ▶** per ascoltare la sequenza (rispetta le durate) e **Stop**.
 - Modalità **prova**: disattiva la scrittura, i tasti suonano soltanto.
+- Editing: inserimento **dopo** la voce selezionata (anche in mezzo), **⌫**
+  toglie solo la nota a fuoco negli accordi, **tieni premuto e trascina** per
+  riordinare; i tasti evidenziati mostrano la diteggiatura.
 - Toggle **nomi** IT (Do Re Mi) / EN (C D E) e **audio** (♪ / muto).
 - Audio sintetizzato "musette" (due triangolari scordati ±7 cent):
   su Android via `flutter_soloud` (WAV in memoria), sul Web via Web Audio API.
