@@ -57,8 +57,12 @@ class _Header extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text('Taccuino Fisarmonica',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: display(size: 21, weight: FontWeight.w600)),
                 Text('blocco note musicale',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: mono(size: 10, color: Palette.muted, spacing: 1)),
               ],
             ),
@@ -81,10 +85,216 @@ class _Header extends StatelessWidget {
               state.toggleAudio();
             },
           ),
+          const SizedBox(width: 4),
+          _MenuButton(state: state),
         ],
       ),
     );
   }
+}
+
+/// Menu con Salva con nome / Carica.
+class _MenuButton extends StatelessWidget {
+  final AppState state;
+  const _MenuButton({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: 'Menu',
+      icon: const Icon(Icons.menu, color: Palette.brass),
+      color: Palette.panel,
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      onSelected: (v) {
+        if (v == 'save') {
+          _showSaveDialog(context, state);
+        } else if (v == 'load') {
+          _showLoadSheet(context, state);
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'save',
+          child: Row(children: [
+            const Icon(Icons.save_outlined, size: 20, color: Palette.ivory),
+            const SizedBox(width: 10),
+            Text('Salva con nome', style: mono(size: 14)),
+          ]),
+        ),
+        PopupMenuItem(
+          value: 'load',
+          child: Row(children: [
+            const Icon(Icons.folder_open_outlined,
+                size: 20, color: Palette.ivory),
+            const SizedBox(width: 10),
+            Text('Carica…', style: mono(size: 14)),
+          ]),
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _showSaveDialog(BuildContext context, AppState state) async {
+  if (state.isEmpty) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        content: Text('Niente da salvare', style: mono(size: 13)),
+        backgroundColor: Palette.brassDeep,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(milliseconds: 1400),
+      ));
+    return;
+  }
+  final controller = TextEditingController();
+  final name = await showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: Palette.panel,
+      title: Text('Salva con nome', style: display(size: 18)),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        style: mono(size: 15),
+        cursorColor: Palette.brass,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: InputDecoration(
+          hintText: 'Nome della musica',
+          hintStyle: mono(size: 14, color: Palette.muted),
+          enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Palette.brassDim)),
+          focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Palette.brass)),
+        ),
+        onSubmitted: (v) => Navigator.pop(ctx, v),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text('Annulla', style: mono(size: 14, color: Palette.muted)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, controller.text),
+          child: Text('Salva', style: mono(size: 14, color: Palette.brass)),
+        ),
+      ],
+    ),
+  );
+  if (name != null && name.trim().isNotEmpty) {
+    final overwrite = state.hasSongNamed(name);
+    state.saveCurrentAs(name);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          content: Text(
+              overwrite ? 'Sovrascritto "$name"' : 'Salvato "$name"',
+              style: mono(size: 13)),
+          backgroundColor: Palette.brassDeep,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 1600),
+        ));
+    }
+  }
+}
+
+void _showLoadSheet(BuildContext context, AppState state) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Palette.panel,
+    showDragHandle: true,
+    builder: (ctx) => AnimatedBuilder(
+      animation: state,
+      builder: (context, _) {
+        final songs = [...state.songs]
+          ..sort((a, b) => b.savedAt.compareTo(a.savedAt));
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Musiche salvate',
+                    style: display(size: 18, weight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                if (songs.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Text('Nessuna musica salvata.',
+                        style: mono(size: 14, color: Palette.muted)),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: songs.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(color: Palette.line, height: 1),
+                      itemBuilder: (context, i) {
+                        final s = songs[i];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(s.name,
+                              style: mono(size: 15, weight: FontWeight.w700)),
+                          subtitle: Text(
+                            '${s.noteCount} voci · ${_fmtDate(s.savedAt)}',
+                            style: mono(size: 11, color: Palette.muted),
+                          ),
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            state.loadSong(s);
+                            Navigator.pop(ctx);
+                          },
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                color: Palette.muted),
+                            tooltip: 'Elimina',
+                            onPressed: () => _confirmDelete(context, state, s.name),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+Future<void> _confirmDelete(
+    BuildContext context, AppState state, String name) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: Palette.panel,
+      title: Text('Eliminare?', style: display(size: 17)),
+      content: Text('Rimuovo "$name" dalle musiche salvate.',
+          style: mono(size: 14, color: Palette.ivory)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text('Annulla', style: mono(size: 14, color: Palette.muted)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text('Elimina', style: mono(size: 14, color: Palette.brass)),
+        ),
+      ],
+    ),
+  );
+  if (ok == true) state.deleteSong(name);
+}
+
+String _fmtDate(String iso) {
+  final d = DateTime.tryParse(iso);
+  if (d == null) return '';
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(d.day)}/${two(d.month)}/${d.year} ${two(d.hour)}:${two(d.minute)}';
 }
 
 class _HeaderToggle extends StatelessWidget {

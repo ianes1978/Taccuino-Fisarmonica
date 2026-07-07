@@ -21,6 +21,8 @@ salva il lavoro tra un avvio e l'altro.
 - Audio sintetizzato "musette" (due triangolari scordati ±7 cent):
   su Android via `flutter_soloud` (WAV in memoria), sul Web via Web Audio API.
 - **Copia** negli appunti, **svuota**, **persistenza** con `shared_preferences`.
+- **Salva con nome** e **Carica** (lista delle musiche salvate, con elimina)
+  dal menu ☰ in alto.
 - Font: Fraunces (titoli) + Space Mono (note), palette legno/ottone/avorio.
 - Icona app (Android + Web) generata da `assets/icon/app_icon.png`.
 

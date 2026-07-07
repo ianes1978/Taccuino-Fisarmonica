@@ -7,11 +7,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../audio/synth.dart';
 import '../models/entry.dart';
 import '../models/notation.dart';
+import '../models/saved_song.dart';
 
 class AppState extends ChangeNotifier {
   final Synth _synth = Synth();
 
   final List<Entry> sequence = [];
+
+  /// Musiche salvate con nome.
+  final List<SavedSong> songs = [];
 
   /// Indice della voce selezionata; null = "l'ultima".
   int? selected;
@@ -52,7 +56,22 @@ class AppState extends ChangeNotifier {
         // dati corrotti: riparti pulito
       }
     }
+    final rawSongs = _prefs?.getString('songs');
+    if (rawSongs != null && rawSongs.isNotEmpty) {
+      try {
+        final list = jsonDecode(rawSongs) as List;
+        songs
+          ..clear()
+          ..addAll(list
+              .map((e) => SavedSong.fromJson(e as Map<String, dynamic>)));
+      } catch (_) {}
+    }
     notifyListeners();
+  }
+
+  void _persistSongs() {
+    final raw = jsonEncode(songs.map((s) => s.toJson()).toList());
+    _prefs?.setString('songs', raw);
   }
 
   void _persist() {
@@ -224,6 +243,49 @@ class AppState extends ChangeNotifier {
     focusMidi = null;
     _commit();
   }
+
+  // --- Salva / Carica ------------------------------------------------------
+
+  /// Salva la sequenza corrente con un nome (sovrascrive se il nome esiste).
+  void saveCurrentAs(String name, {String? isoNow}) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || sequence.isEmpty) return;
+    final copy = sequence.map((e) => Entry.fromJson(e.toJson())).toList();
+    final song = SavedSong(
+      name: trimmed,
+      entries: copy,
+      savedAt: isoNow ?? DateTime.now().toIso8601String(),
+    );
+    final idx =
+        songs.indexWhere((s) => s.name.toLowerCase() == trimmed.toLowerCase());
+    if (idx >= 0) {
+      songs[idx] = song;
+    } else {
+      songs.add(song);
+    }
+    _persistSongs();
+    notifyListeners();
+  }
+
+  /// Carica una musica salvata nella sequenza di lavoro (copia profonda).
+  void loadSong(SavedSong song) {
+    stopPlayback();
+    sequence
+      ..clear()
+      ..addAll(song.cloneEntries());
+    selected = null;
+    focusMidi = null;
+    _commit();
+  }
+
+  void deleteSong(String name) {
+    songs.removeWhere((s) => s.name == name);
+    _persistSongs();
+    notifyListeners();
+  }
+
+  bool hasSongNamed(String name) =>
+      songs.any((s) => s.name.toLowerCase() == name.trim().toLowerCase());
 
   // --- Diteggiatura --------------------------------------------------------
 
