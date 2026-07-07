@@ -27,6 +27,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Abilita GitHub Pages via API (source = GitHub Actions) da un job SENZA
+      # gate d'ambiente: così l'ambiente github-pages esiste prima del deploy
+      # (evita il rifiuto immediato del job deploy quando Pages non è attivo).
+      - name: Enable GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -64,11 +72,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      # enablement: true abilita GitHub Pages via API (source = GitHub Actions),
-      # così non serve alcuna configurazione manuale.
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - name: Deploy to GitHub Pages
         id: deploy
         uses: actions/deploy-pages@v4
