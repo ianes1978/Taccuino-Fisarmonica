@@ -21,24 +21,39 @@ class ControlBar extends StatelessWidget {
           // Riga modalità
           Row(
             children: [
-              _ToggleChip(
-                label: '≡ accordo',
-                active: state.chordMode,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  state.toggleChordMode();
-                },
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _ToggleChip(
+                      label: '≡ accordo',
+                      active: state.chordMode,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        state.toggleChordMode();
+                      },
+                    ),
+                    _ToggleChip(
+                      label: '↝ abbell.',
+                      active: state.runMode,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        state.toggleRunMode();
+                      },
+                    ),
+                    _ToggleChip(
+                      label: '✎ prova',
+                      active: state.practiceMode,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        state.togglePracticeMode();
+                      },
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(width: 8),
-              _ToggleChip(
-                label: '✎ prova',
-                active: state.practiceMode,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  state.togglePracticeMode();
-                },
-              ),
-              const Spacer(),
               _IconAction(
                 icon: Icons.backspace_outlined,
                 tooltip: 'Cancella voce',

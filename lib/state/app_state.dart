@@ -27,6 +27,10 @@ class AppState extends ChangeNotifier {
   int? focusMidi;
 
   bool chordMode = false;
+
+  /// Modalità abbellimento: i tasti si accodano in orizzontale (in ordine).
+  bool runMode = false;
+
   bool italian = true;
   bool audioOn = true;
 
@@ -128,11 +132,30 @@ class AppState extends ChangeNotifier {
   void onKeyTap(int midi) {
     _playIfOn(midi);
     if (practiceMode) return; // prova: suona soltanto, non scrive
-    if (chordMode) {
+    if (runMode) {
+      _runNote(midi);
+    } else if (chordMode) {
       _stackNote(midi);
     } else {
       _appendNote(midi);
     }
+  }
+
+  /// Abbellimento: accoda la nota (in ordine) sulla voce-run bersaglio; se la
+  /// bersaglio non è un abbellimento, ne crea uno nuovo subito dopo.
+  void _runNote(int midi) {
+    final i = targetIndex;
+    final t = (i != null) ? sequence[i] : null;
+    if (t != null && t.run) {
+      t.addNote(midi);
+      focusMidi = midi;
+    } else {
+      final insertAt = i == null ? sequence.length : i + 1;
+      sequence.insert(insertAt, Entry.run([midi]));
+      selected = insertAt;
+      focusMidi = midi;
+    }
+    _commit();
   }
 
   void _appendNote(int midi) {
@@ -193,7 +216,11 @@ class AppState extends ChangeNotifier {
     if (i == null) return;
     final e = sequence[i];
     final m = effectiveFocusMidi;
-    if (e.midis.length > 1 && m != null) {
+    if (e.run && e.midis.length > 1) {
+      // Abbellimento: toglie l'ultima nota (si costruisce in ordine).
+      e.removeLast();
+      focusMidi = e.midis.last;
+    } else if (e.isChord && m != null) {
       // Accordo: cancella solo la nota a fuoco.
       e.removeNote(m);
       if (e.midis.isEmpty) {
@@ -204,7 +231,7 @@ class AppState extends ChangeNotifier {
         focusMidi = e.midis.last;
       }
     } else {
-      // Nota singola (o nessun fuoco): cancella l'intera voce.
+      // Nota singola / abbellimento a una nota: cancella l'intera voce.
       sequence.removeAt(i);
       selected = null;
       focusMidi = null;
@@ -365,11 +392,20 @@ class AppState extends ChangeNotifier {
       playingIndex = i;
       notifyListeners();
       final e = sequence[i];
-      for (final m in e.midis) {
-        _synth.play(m);
+      if (e.run) {
+        // Abbellimento: note in rapida successione.
+        for (final m in e.midis) {
+          if (token != _playToken) break;
+          _synth.play(m);
+          await Future.delayed(const Duration(milliseconds: 75));
+        }
+        await Future.delayed(Duration(milliseconds: 120 + e.len * 170));
+      } else {
+        for (final m in e.midis) {
+          _synth.play(m);
+        }
+        await Future.delayed(Duration(milliseconds: 280 + e.len * 170));
       }
-      final ms = 280 + e.len * 170; // durata in base ai trattini
-      await Future.delayed(Duration(milliseconds: ms));
     }
     if (token == _playToken) {
       isPlaying = false;
@@ -397,6 +433,13 @@ class AppState extends ChangeNotifier {
 
   void toggleChordMode() {
     chordMode = !chordMode;
+    if (chordMode) runMode = false; // esclusivi
+    notifyListeners();
+  }
+
+  void toggleRunMode() {
+    runMode = !runMode;
+    if (runMode) chordMode = false; // esclusivi
     notifyListeners();
   }
 

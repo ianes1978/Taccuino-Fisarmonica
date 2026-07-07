@@ -10,8 +10,10 @@ salva il lavoro tra un avvio e l'altro.
 - Pianoforte **verticale** Do4…Mi6 (MIDI 60–88), tasti in madreperla e ottone,
   neri posizionati sui confini corretti, scroll con avvio centrato.
 - Notazione: `La4`, `Sol#5-`, accordi `[Do4 Mi4 Sol4]--`, diteggiatura `La4(3)`.
-- Modalità **accordo** (impila/rimuove note su una voce), durata `+`/`−` (0–8),
-  **diteggiatura 1–5** per nota, cancella `⌫`, selezione voce toccandola.
+- Modalità **accordo** (verticale, `[Do4 Mi4 Sol4]`) e **abbellimento**
+  (orizzontale/veloce, `{Do4 Re4 Mi4}`, con ripetizioni per i trilli).
+- Durata `+`/`−` (0–8), **diteggiatura 1–5** per nota, cancella `⌫`,
+  selezione voce toccandola.
 - **Play ▶** per ascoltare la sequenza (rispetta le durate) e **Stop**.
 - Modalità **prova**: disattiva la scrittura, i tasti suonano soltanto.
 - Editing: inserimento **dopo** la voce selezionata (anche in mezzo), **⌫**

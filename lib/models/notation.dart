@@ -44,15 +44,16 @@ String _noteWithFinger(Entry e, int midi, {required bool italian}) {
 
 /// Formatta una voce nel formato di notazione.
 ///  - singola: `La4(3)--`
-///  - accordo: `[Do4(1) Mi4(3) Sol4(5)]--`
+///  - accordo (verticale): `[Do4(1) Mi4(3) Sol4(5)]--`
+///  - abbellimento (orizzontale): `{Do4 Re4 Mi4}--`
 String formatEntry(Entry e, {required bool italian}) {
   final tail = _dashes(e.len);
+  final inside =
+      e.midis.map((m) => _noteWithFinger(e, m, italian: italian)).join(' ');
+  if (e.run) return '{$inside}$tail';
   if (e.midis.length == 1) {
     return '${_noteWithFinger(e, e.midis.first, italian: italian)}$tail';
   }
-  final inside = e.midis
-      .map((m) => _noteWithFinger(e, m, italian: italian))
-      .join(' ');
   return '[$inside]$tail';
 }
 

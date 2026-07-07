@@ -128,6 +128,7 @@ class AnnotationStrip extends StatelessWidget {
                             isTarget: state.targetIndex == i,
                             isPlaying: state.playingIndex == i,
                             chordMode: state.chordMode,
+                            runMode: state.runMode,
                             focusMidi: state.targetIndex == i
                                 ? state.effectiveFocusMidi
                                 : null,
@@ -177,6 +178,7 @@ class _EntryChip extends StatelessWidget {
   final bool isTarget;
   final bool isPlaying;
   final bool chordMode;
+  final bool runMode;
   final int? focusMidi;
   final VoidCallback onTapChip;
   final ValueChanged<int> onTapNote;
@@ -187,6 +189,7 @@ class _EntryChip extends StatelessWidget {
     required this.isTarget,
     required this.isPlaying,
     required this.chordMode,
+    required this.runMode,
     required this.focusMidi,
     required this.onTapChip,
     required this.onTapNote,
@@ -196,7 +199,50 @@ class _EntryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final dashes = '-' * entry.len;
     final Widget content;
-    if (entry.midis.length == 1) {
+    if (entry.run) {
+      // Abbellimento: note in fila orizzontale (nell'ordine), fra graffe.
+      content = Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text('{',
+              style: mono(
+                  size: 17, weight: FontWeight.w700, color: Palette.brass)),
+          for (var k = 0; k < entry.midis.length; k++)
+            GestureDetector(
+              onTap: () => onTapNote(entry.midis[k]),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                margin: const EdgeInsets.symmetric(horizontal: 1),
+                decoration: focusMidi == entry.midis[k]
+                    ? BoxDecoration(
+                        color: Palette.brass.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(4),
+                      )
+                    : null,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(noteLabel(entry.midis[k], italian: italian),
+                        style: mono(size: 13, weight: FontWeight.w700)),
+                    _fingerBadge(entry.fingerOf(entry.midis[k])),
+                  ],
+                ),
+              ),
+            ),
+          Text('}',
+              style: mono(
+                  size: 17, weight: FontWeight.w700, color: Palette.brass)),
+          if (dashes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(dashes,
+                  style: mono(size: 16, weight: FontWeight.w700)),
+            ),
+        ],
+      );
+    } else if (entry.midis.length == 1) {
       final m = entry.midis.first;
       content = Row(
         mainAxisSize: MainAxisSize.min,
@@ -257,9 +303,9 @@ class _EntryChip extends StatelessWidget {
       );
     }
 
-    // Bersaglio: bordo ottone pieno (normale) o tratteggiato (modalità accordo).
-    // In riproduzione: sfondo ottone pieno.
-    final dashed = isTarget && chordMode;
+    // Bersaglio: bordo pieno (normale) o tratteggiato quando è attiva una
+    // modalità di impilamento (accordo o abbellimento).
+    final dashed = isTarget && (chordMode || runMode);
     final child = Container(
       constraints: const BoxConstraints(minWidth: 44),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
