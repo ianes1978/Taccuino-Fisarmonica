@@ -1,0 +1,235 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../models/notation.dart';
+import '../theme.dart';
+
+/// Pianoforte verticale: nota più acuta in cima, più grave in fondo.
+/// Do4 (60) in basso .. Mi6 (88) in alto.
+class PianoKeyboard extends StatefulWidget {
+  final bool italian;
+  final ValueChanged<int> onTap;
+
+  const PianoKeyboard({
+    super.key,
+    required this.italian,
+    required this.onTap,
+  });
+
+  @override
+  State<PianoKeyboard> createState() => _PianoKeyboardState();
+}
+
+class _PianoKeyboardState extends State<PianoKeyboard> {
+  static const double whiteH = 44;
+  static const double blackH = 30;
+  static const double blackWidthFactor = 0.56;
+
+  final ScrollController _scroll = ScrollController();
+  final Set<int> _flash = {};
+  bool _didCenter = false;
+
+  late final List<int> _whiteMidis; // ascendente
+  late final List<int> _blackMidis;
+
+  @override
+  void initState() {
+    super.initState();
+    _whiteMidis = [
+      for (var m = kLowMidi; m <= kHighMidi; m++)
+        if (!isBlackKey(m)) m
+    ];
+    _blackMidis = [
+      for (var m = kLowMidi; m <= kHighMidi; m++)
+        if (isBlackKey(m)) m
+    ];
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Indice di display (0 = più acuto, in cima) per una nota bianca.
+  int _whiteDisplayIndex(int midi) {
+    final asc = _whiteMidis.indexOf(midi);
+    return _whiteMidis.length - 1 - asc;
+  }
+
+  double get _totalHeight => _whiteMidis.length * whiteH;
+
+  void _handleTap(int midi) {
+    widget.onTap(midi);
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    if (!reduceMotion) {
+      setState(() => _flash.add(midi));
+      Timer(const Duration(milliseconds: 130), () {
+        if (mounted) setState(() => _flash.remove(midi));
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // All'avvio, centra la tastiera.
+        if (!_didCenter) {
+          _didCenter = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!_scroll.hasClients) return;
+            final target = (_totalHeight - constraints.maxHeight) / 2;
+            _scroll.jumpTo(target.clamp(0.0, _scroll.position.maxScrollExtent));
+          });
+        }
+
+        final width = constraints.maxWidth;
+        return DecoratedBox(
+          decoration: const BoxDecoration(
+            color: Palette.bg,
+            border: Border(top: BorderSide(color: Palette.line)),
+          ),
+          child: SingleChildScrollView(
+            controller: _scroll,
+            child: SizedBox(
+              height: _totalHeight,
+              width: width,
+              child: Stack(
+                children: [
+                  ..._whiteMidis.map(_buildWhiteKey),
+                  ..._blackMidis.map((m) => _buildBlackKey(m, width)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWhiteKey(int midi) {
+    final i = _whiteDisplayIndex(midi);
+    final pressed = _flash.contains(midi);
+    return Positioned(
+      top: i * whiteH,
+      left: 0,
+      right: 0,
+      height: whiteH,
+      child: _KeyTouch(
+        onTap: () => _handleTap(midi),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: pressed
+                  ? const [Palette.brass, Color(0xFFD9BD7C), Palette.brassDim]
+                  : const [Palette.whiteTop, Palette.whiteMid, Palette.whiteBot],
+            ),
+            border: const Border(
+              left: BorderSide(color: Palette.brass, width: 3),
+              bottom: BorderSide(color: Palette.line, width: 1),
+            ),
+          ),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 14),
+          child: _keyLabel(
+            midi,
+            color: pressed ? Palette.brassDeep : const Color(0xFF6B5E4C),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBlackKey(int midi, double keyboardWidth) {
+    // Centrato sul confine tra i due tasti bianchi corretti: il bianco appena
+    // sotto (midi-1) e quello appena sopra (midi+1). Il confine è il bordo
+    // superiore del bianco inferiore.
+    final lowerWhiteIndex = _whiteDisplayIndex(midi - 1);
+    final boundaryY = lowerWhiteIndex * whiteH;
+    final pressed = _flash.contains(midi);
+    return Positioned(
+      top: boundaryY - blackH / 2,
+      right: 0,
+      height: blackH,
+      width: keyboardWidth * blackWidthFactor,
+      child: SizedBox.expand(
+        child: _KeyTouch(
+          onTap: () => _handleTap(midi),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: pressed
+                    ? const [Palette.brassDim, Palette.brassDeep, Color(0xFF2A2411)]
+                    : const [Palette.blackTop, Palette.blackMid, Palette.blackBot],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                bottomLeft: Radius.circular(4),
+              ),
+              boxShadow: const [
+                BoxShadow(color: Colors.black54, blurRadius: 4, offset: Offset(-1, 1)),
+              ],
+            ),
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 10),
+            child: _keyLabel(
+              midi,
+              color: pressed ? Palette.ivory : Palette.brass,
+              small: true,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _keyLabel(int midi, {required Color color, bool small = false}) {
+    final name = noteName(midi, italian: widget.italian);
+    final oct = octaveOf(midi).toString();
+    return RichText(
+      text: TextSpan(
+        style: mono(
+          size: small ? 11 : 13,
+          weight: FontWeight.w700,
+          color: color,
+        ),
+        children: [
+          TextSpan(text: name),
+          // Ottava piccola, come pedice.
+          TextSpan(
+            text: oct,
+            style: mono(
+              size: small ? 8 : 9,
+              weight: FontWeight.w400,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KeyTouch extends StatelessWidget {
+  final VoidCallback onTap;
+  final Widget child;
+  const _KeyTouch({required this.onTap, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: child,
+      ),
+    );
+  }
+}
