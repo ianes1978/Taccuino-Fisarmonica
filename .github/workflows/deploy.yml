@@ -38,6 +38,9 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
+
       - name: Build web
         # base-href deve combaciare col nome del repo per GitHub Pages.
         run: |
@@ -61,7 +64,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+      # enablement: true abilita GitHub Pages via API (source = GitHub Actions),
+      # così non serve alcuna configurazione manuale.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - name: Deploy to GitHub Pages
         id: deploy
         uses: actions/deploy-pages@v4
@@ -86,6 +93,9 @@ jobs:
         run: flutter create --platforms=android,web --project-name taccuino_fisarmonica --org com.taccuino .
 
       - run: flutter pub get
+
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
 
       - name: Build release APK
         run: flutter build apk --release

@@ -17,6 +17,7 @@ salva il lavoro tra un avvio e l'altro.
   su Android via `flutter_soloud` (WAV in memoria), sul Web via Web Audio API.
 - **Copia** negli appunti, **svuota**, **persistenza** con `shared_preferences`.
 - Font: Fraunces (titoli) + Space Mono (note), palette legno/ottone/avorio.
+- Icona app (Android + Web) generata da `assets/icon/app_icon.png`.
 
 ## Eseguire in locale
 
@@ -35,7 +36,8 @@ flutter run -d chrome       # web
 Il workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
 
 - **Web → GitHub Pages**: build con `--base-href` pari al nome del repo e deploy
-  su Pages. Abilita **Settings → Pages → Source: GitHub Actions** una volta sola.
+  su Pages. Il workflow abilita Pages da solo (`configure-pages` con
+  `enablement: true`), nessuna configurazione manuale richiesta.
   URL: `https://ianes1978.github.io/Taccuino-Fisarmonica/`
 - **Android → Release APK**: build `--release`, caricato come artifact di
   workflow e pubblicato nella release `apk-latest` (sui rami `main`/`master`).
