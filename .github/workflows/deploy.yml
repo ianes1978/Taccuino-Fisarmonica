@@ -14,18 +14,16 @@ permissions:
   pages: write
   id-token: write
 
-# Avoid overlapping deployments to the same environment.
+# Un solo deploy Pages alla volta.
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  # ---------------------------------------------------------------- Web -----
-  web:
+  # ------------------------------------------------------ Build web ---------
+  # Builda sempre (valida la compilazione web) e carica l'artifact per Pages.
+  build_web:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,17 +44,29 @@ jobs:
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           flutter build web --release --base-href "/${REPO_NAME}/"
 
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
 
+  # ------------------------------------------------------ Deploy Pages ------
+  # Il deploy su Pages avviene solo sul ramo di default (le regole dell'ambiente
+  # github-pages bloccano gli altri rami). Richiede una tantum:
+  # Settings -> Pages -> Source: GitHub Actions.
+  deploy_pages:
+    needs: build_web
+    if: ${{ github.ref_name == github.event.repository.default_branch }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
       - name: Deploy to GitHub Pages
         id: deploy
         uses: actions/deploy-pages@v4
 
-  # -------------------------------------------------------------- Android ---
+  # ---------------------------------------------------------- Android -------
   android:
     runs-on: ubuntu-latest
     steps:
@@ -86,9 +96,9 @@ jobs:
           name: taccuino-fisarmonica-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      # Pubblica l'APK come release "latest" (solo sui rami principali).
+      # Pubblica l'APK come release "latest" solo sul ramo di default.
       - name: Publish APK release
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        if: ${{ github.ref_name == github.event.repository.default_branch }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-latest
