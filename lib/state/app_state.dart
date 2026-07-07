@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -15,9 +16,20 @@ class AppState extends ChangeNotifier {
   /// Indice della voce selezionata; null = "l'ultima".
   int? selected;
 
+  /// Nota (midi) messa a fuoco dentro la voce bersaglio, per la diteggiatura.
+  int? focusMidi;
+
   bool chordMode = false;
   bool italian = true;
   bool audioOn = true;
+
+  /// Modalità "prova": i tasti suonano soltanto, senza scrivere.
+  bool practiceMode = false;
+
+  /// Riproduzione in corso.
+  bool isPlaying = false;
+  int? playingIndex;
+  int _playToken = 0;
 
   SharedPreferences? _prefs;
 
@@ -65,10 +77,19 @@ class AppState extends ChangeNotifier {
     return i == null ? null : sequence[i];
   }
 
+  /// Nota effettivamente a fuoco (per la diteggiatura) nella voce bersaglio.
+  int? get effectiveFocusMidi {
+    final e = targetEntry;
+    if (e == null) return null;
+    if (focusMidi != null && e.midis.contains(focusMidi)) return focusMidi;
+    return e.midis.isNotEmpty ? e.midis.last : null;
+  }
+
   // --- Interazioni tastiera ------------------------------------------------
 
   void onKeyTap(int midi) {
     _playIfOn(midi);
+    if (practiceMode) return; // prova: suona soltanto, non scrive
     if (chordMode) {
       _stackNote(midi);
     } else {
@@ -79,15 +100,16 @@ class AppState extends ChangeNotifier {
   void _appendNote(int midi) {
     sequence.add(Entry.single(midi));
     selected = null; // la nuova voce (ultima) diventa corrente
+    focusMidi = midi;
     _commit();
   }
 
   void _stackNote(int midi) {
     final i = targetIndex;
     if (i == null) {
-      // Sequenza vuota: crea comunque la prima voce.
       sequence.add(Entry.single(midi));
       selected = null;
+      focusMidi = midi;
       _commit();
       return;
     }
@@ -97,9 +119,11 @@ class AppState extends ChangeNotifier {
       if (emptied) {
         sequence.removeAt(i);
         selected = null;
+        focusMidi = null;
       }
     } else {
       entry.addNote(midi);
+      focusMidi = midi;
     }
     _commit();
   }
@@ -127,25 +151,111 @@ class AppState extends ChangeNotifier {
     if (i != null) {
       sequence.removeAt(i);
       selected = null;
+      focusMidi = null;
       _commit();
     }
   }
 
   void selectEntry(int index) {
     selected = index;
+    final e = sequence[index];
+    // Per una nota singola il fuoco è automatico; per un accordo prendi l'acuta.
+    focusMidi = e.midis.isNotEmpty ? e.midis.last : null;
+    notifyListeners();
+  }
+
+  /// Seleziona una nota specifica dentro un accordo (per la diteggiatura).
+  void focusNoteInEntry(int index, int midi) {
+    selected = index;
+    focusMidi = midi;
     notifyListeners();
   }
 
   void clearAll() {
+    stopPlayback();
     sequence.clear();
     selected = null;
+    focusMidi = null;
     _commit();
+  }
+
+  // --- Diteggiatura --------------------------------------------------------
+
+  void setFinger(int finger) {
+    final e = targetEntry;
+    final m = effectiveFocusMidi;
+    if (e != null && m != null) {
+      e.setFinger(m, finger);
+      _commit();
+    }
+  }
+
+  void clearFinger() {
+    final e = targetEntry;
+    final m = effectiveFocusMidi;
+    if (e != null && m != null) {
+      e.clearFinger(m);
+      _commit();
+    }
+  }
+
+  int? get currentFinger {
+    final e = targetEntry;
+    final m = effectiveFocusMidi;
+    if (e == null || m == null) return null;
+    return e.fingerOf(m);
+  }
+
+  // --- Riproduzione --------------------------------------------------------
+
+  Future<void> playSequence() async {
+    if (isPlaying || sequence.isEmpty) return;
+    isPlaying = true;
+    _playToken++;
+    final token = _playToken;
+    notifyListeners();
+    for (var i = 0; i < sequence.length; i++) {
+      if (token != _playToken) break;
+      playingIndex = i;
+      notifyListeners();
+      final e = sequence[i];
+      for (final m in e.midis) {
+        _synth.play(m);
+      }
+      final ms = 280 + e.len * 170; // durata in base ai trattini
+      await Future.delayed(Duration(milliseconds: ms));
+    }
+    if (token == _playToken) {
+      isPlaying = false;
+      playingIndex = null;
+      notifyListeners();
+    }
+  }
+
+  void stopPlayback() {
+    _playToken++;
+    isPlaying = false;
+    playingIndex = null;
+    notifyListeners();
+  }
+
+  void togglePlay() {
+    if (isPlaying) {
+      stopPlayback();
+    } else {
+      playSequence();
+    }
   }
 
   // --- Toggle --------------------------------------------------------------
 
   void toggleChordMode() {
     chordMode = !chordMode;
+    notifyListeners();
+  }
+
+  void togglePracticeMode() {
+    practiceMode = !practiceMode;
     notifyListeners();
   }
 

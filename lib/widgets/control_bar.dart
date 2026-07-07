@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 
-/// Barra controlli: toggle modalità accordo, gruppo durata (− +), cancella.
+/// Barra controlli: modalità (accordo, prova), durata, diteggiatura, cancella.
 class ControlBar extends StatelessWidget {
   final AppState state;
   const ControlBar({super.key, required this.state});
@@ -14,30 +14,80 @@ class ControlBar extends StatelessWidget {
     final hasTarget = state.targetEntry != null;
     return Container(
       color: Palette.bg,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _ToggleChip(
-            label: '≡ accordo',
-            active: state.chordMode,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              state.toggleChordMode();
-            },
+          // Riga modalità
+          Row(
+            children: [
+              _ToggleChip(
+                label: '≡ accordo',
+                active: state.chordMode,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  state.toggleChordMode();
+                },
+              ),
+              const SizedBox(width: 8),
+              _ToggleChip(
+                label: '✎ prova',
+                active: state.practiceMode,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  state.togglePracticeMode();
+                },
+              ),
+              const Spacer(),
+              _IconAction(
+                icon: Icons.backspace_outlined,
+                tooltip: 'Cancella voce',
+                enabled: hasTarget,
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  state.deleteTarget();
+                },
+              ),
+            ],
           ),
-          const Spacer(),
-          _DurationGroup(state: state, enabled: hasTarget),
-          const SizedBox(width: 10),
-          _IconAction(
-            icon: Icons.backspace_outlined,
-            tooltip: 'Cancella voce',
-            enabled: hasTarget,
-            onTap: () {
-              HapticFeedback.mediumImpact();
-              state.deleteTarget();
-            },
+          const SizedBox(height: 8),
+          // Riga durata
+          Row(
+            children: [
+              _GroupLabel('Durata'),
+              const SizedBox(width: 8),
+              _DurationGroup(state: state, enabled: hasTarget),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Riga diteggiatura
+          Row(
+            children: [
+              _GroupLabel('Dita'),
+              const SizedBox(width: 8),
+              Expanded(child: _FingerGroup(state: state, enabled: hasTarget)),
+            ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GroupLabel extends StatelessWidget {
+  final String text;
+  const _GroupLabel(this.text);
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 54,
+      child: Text(
+        text,
+        style: mono(
+            size: 11,
+            color: Palette.muted,
+            weight: FontWeight.w700,
+            spacing: 1),
       ),
     );
   }
@@ -60,7 +110,7 @@ class _ToggleChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         child: Container(
           constraints: const BoxConstraints(minHeight: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: active ? Palette.brass : Palette.panel,
@@ -71,7 +121,7 @@ class _ToggleChip extends StatelessWidget {
           child: Text(
             label,
             style: mono(
-              size: 14,
+              size: 13,
               weight: FontWeight.w700,
               color: active ? Palette.bg : Palette.brass,
             ),
@@ -126,6 +176,88 @@ class _DurationGroup extends StatelessWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FingerGroup extends StatelessWidget {
+  final AppState state;
+  final bool enabled;
+  const _FingerGroup({required this.state, required this.enabled});
+
+  @override
+  Widget build(BuildContext context) {
+    final current = state.currentFinger;
+    return Row(
+      children: [
+        for (var f = 1; f <= 5; f++)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _FingerButton(
+                finger: f,
+                active: current == f,
+                enabled: enabled,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  state.setFinger(f);
+                },
+              ),
+            ),
+          ),
+        _IconAction(
+          icon: Icons.close,
+          tooltip: 'Togli dito',
+          enabled: enabled && current != null,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            state.clearFinger();
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _FingerButton extends StatelessWidget {
+  final int finger;
+  final bool active;
+  final bool enabled;
+  final VoidCallback onTap;
+  const _FingerButton({
+    required this.finger,
+    required this.active,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active
+        ? Palette.bg
+        : (enabled ? Palette.brass : Palette.brassDeep);
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: 'Dito $finger',
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(9),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active ? Palette.brass : Palette.panel,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: active ? Palette.brass : Palette.brassDim,
+              width: 1.5,
+            ),
+          ),
+          child: Text('$finger',
+              style: mono(size: 15, weight: FontWeight.w700, color: color)),
+        ),
       ),
     );
   }

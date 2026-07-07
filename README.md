@@ -9,9 +9,11 @@ salva il lavoro tra un avvio e l'altro.
 
 - Pianoforte **verticale** Do4…Mi6 (MIDI 60–88), tasti in madreperla e ottone,
   neri posizionati sui confini corretti, scroll con avvio centrato.
-- Notazione: `La4`, `Sol#5-`, accordi `[Do4 Mi4 Sol4]--`.
+- Notazione: `La4`, `Sol#5-`, accordi `[Do4 Mi4 Sol4]--`, diteggiatura `La4(3)`.
 - Modalità **accordo** (impila/rimuove note su una voce), durata `+`/`−` (0–8),
-  cancella `⌫`, selezione voce toccandola.
+  **diteggiatura 1–5** per nota, cancella `⌫`, selezione voce toccandola.
+- **Play ▶** per ascoltare la sequenza (rispetta le durate) e **Stop**.
+- Modalità **prova**: disattiva la scrittura, i tasti suonano soltanto.
 - Toggle **nomi** IT (Do Re Mi) / EN (C D E) e **audio** (♪ / muto).
 - Audio sintetizzato "musette" (due triangolari scordati ±7 cent):
   su Android via `flutter_soloud` (WAV in memoria), sul Web via Web Audio API.

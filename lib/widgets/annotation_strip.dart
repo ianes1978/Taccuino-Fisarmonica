@@ -7,7 +7,7 @@ import '../state/app_state.dart';
 import '../theme.dart';
 
 /// Striscia dell'annotazione: chip inline per note singole, chip con note
-/// incolonnate per gli accordi. Header con copia/svuota.
+/// incolonnate per gli accordi. Header con play, copia e svuota.
 class AnnotationStrip extends StatelessWidget {
   final AppState state;
   const AnnotationStrip({super.key, required this.state});
@@ -51,6 +51,17 @@ class AnnotationStrip extends StatelessWidget {
               const Spacer(),
               if (!empty) ...[
                 _HeaderButton(
+                  icon: state.isPlaying
+                      ? Icons.stop_rounded
+                      : Icons.play_arrow_rounded,
+                  tooltip: state.isPlaying ? 'Ferma' : 'Ascolta',
+                  filled: true,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    state.togglePlay();
+                  },
+                ),
+                _HeaderButton(
                   icon: Icons.copy_all_outlined,
                   tooltip: 'Copia',
                   onTap: () => _copy(context),
@@ -68,7 +79,7 @@ class AnnotationStrip extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: 72,
+            height: 80,
             child: empty
                 ? Align(
                     alignment: Alignment.centerLeft,
@@ -85,8 +96,13 @@ class AnnotationStrip extends StatelessWidget {
                       entry: state.sequence[i],
                       italian: state.italian,
                       isTarget: state.targetIndex == i,
+                      isPlaying: state.playingIndex == i,
                       chordMode: state.chordMode,
-                      onTap: () => state.selectEntry(i),
+                      focusMidi: state.targetIndex == i
+                          ? state.effectiveFocusMidi
+                          : null,
+                      onTapChip: () => state.selectEntry(i),
+                      onTapNote: (m) => state.focusNoteInEntry(i, m),
                     ),
                   ),
           ),
@@ -99,18 +115,25 @@ class AnnotationStrip extends StatelessWidget {
 class _HeaderButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
+  final bool filled;
   final VoidCallback onTap;
   const _HeaderButton(
-      {required this.icon, required this.tooltip, required this.onTap});
+      {required this.icon,
+      required this.tooltip,
+      required this.onTap,
+      this.filled = false});
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onTap,
       tooltip: tooltip,
-      icon: Icon(icon, size: 20, color: Palette.brass),
+      icon: Icon(icon,
+          size: 20, color: filled ? Palette.bg : Palette.brass),
+      style: filled
+          ? IconButton.styleFrom(backgroundColor: Palette.brass)
+          : null,
       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-      splashRadius: 22,
     );
   }
 }
@@ -119,15 +142,21 @@ class _EntryChip extends StatelessWidget {
   final Entry entry;
   final bool italian;
   final bool isTarget;
+  final bool isPlaying;
   final bool chordMode;
-  final VoidCallback onTap;
+  final int? focusMidi;
+  final VoidCallback onTapChip;
+  final ValueChanged<int> onTapNote;
 
   const _EntryChip({
     required this.entry,
     required this.italian,
     required this.isTarget,
+    required this.isPlaying,
     required this.chordMode,
-    required this.onTap,
+    required this.focusMidi,
+    required this.onTapChip,
+    required this.onTapNote,
   });
 
   @override
@@ -135,13 +164,18 @@ class _EntryChip extends StatelessWidget {
     final dashes = '-' * entry.len;
     final Widget content;
     if (entry.midis.length == 1) {
-      content = Text(
-        '${noteLabel(entry.midis.first, italian: italian)}$dashes',
-        style: mono(size: 16, weight: FontWeight.w700),
+      final m = entry.midis.first;
+      content = Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${noteLabel(m, italian: italian)}$dashes',
+              style: mono(size: 16, weight: FontWeight.w700)),
+          _fingerBadge(entry.fingerOf(m)),
+        ],
       );
     } else {
-      // Accordo: note incolonnate, la più acuta in alto e la più grave in
-      // basso, con i trattini di durata a fianco.
+      // Accordo: note incolonnate (acuta in alto, grave in basso), toccabili.
       final descending = entry.midis.reversed.toList();
       content = Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -152,8 +186,32 @@ class _EntryChip extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (final m in descending)
-                Text(noteLabel(m, italian: italian),
-                    style: mono(size: 13, weight: FontWeight.w700, height: 1.2)),
+                GestureDetector(
+                  onTap: () => onTapNote(m),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 1, horizontal: 2),
+                    decoration: focusMidi == m
+                        ? BoxDecoration(
+                            color: Palette.brass.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(4),
+                          )
+                        : null,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(noteLabel(m, italian: italian),
+                            style: mono(
+                                size: 13,
+                                weight: FontWeight.w700,
+                                height: 1.2)),
+                        _fingerBadge(entry.fingerOf(m)),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
           if (dashes.isNotEmpty)
@@ -166,21 +224,24 @@ class _EntryChip extends StatelessWidget {
       );
     }
 
-    // Bersaglio: bordo ottone pieno in modalità normale, tratteggiato in
-    // modalità accordo. Altrimenti bordo neutro.
+    // Bersaglio: bordo ottone pieno (normale) o tratteggiato (modalità accordo).
+    // In riproduzione: sfondo ottone pieno.
     final dashed = isTarget && chordMode;
     final child = Container(
       constraints: const BoxConstraints(minWidth: 44),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color:
-            isTarget ? Palette.brassDeep.withValues(alpha: 0.35) : Palette.bg,
+        color: isPlaying
+            ? Palette.brass.withValues(alpha: 0.30)
+            : (isTarget ? Palette.brassDeep.withValues(alpha: 0.35) : Palette.bg),
         borderRadius: BorderRadius.circular(8),
         border: dashed
             ? null
             : Border.all(
-                color: isTarget ? Palette.brass : Palette.line,
-                width: isTarget ? 2 : 1,
+                color: isPlaying
+                    ? Palette.brass
+                    : (isTarget ? Palette.brass : Palette.line),
+                width: (isTarget || isPlaying) ? 2 : 1,
               ),
       ),
       alignment: Alignment.center,
@@ -188,13 +249,29 @@ class _EntryChip extends StatelessWidget {
     );
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: onTapChip,
       child: dashed
-          ? CustomPaint(
-              foregroundPainter: _DashedBorderPainter(),
-              child: child,
-            )
+          ? CustomPaint(foregroundPainter: _DashedBorderPainter(), child: child)
           : child,
+    );
+  }
+
+  Widget _fingerBadge(int? finger) {
+    if (finger == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, top: 1),
+      child: Container(
+        width: 14,
+        height: 14,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          color: Palette.brass,
+          shape: BoxShape.circle,
+        ),
+        child: Text('$finger',
+            style: mono(
+                size: 9, weight: FontWeight.w700, color: Palette.bg)),
+      ),
     );
   }
 }
