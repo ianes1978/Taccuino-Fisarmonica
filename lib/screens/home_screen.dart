@@ -247,11 +247,24 @@ void _showLoadSheet(BuildContext context, AppState state) {
                             state.loadSong(s);
                             Navigator.pop(ctx);
                           },
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline,
-                                color: Palette.muted),
-                            tooltip: 'Elimina',
-                            onPressed: () => _confirmDelete(context, state, s.name),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined,
+                                    color: Palette.muted),
+                                tooltip: 'Rinomina',
+                                onPressed: () =>
+                                    _showRenameDialog(context, state, s.name),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline,
+                                    color: Palette.muted),
+                                tooltip: 'Elimina',
+                                onPressed: () =>
+                                    _confirmDelete(context, state, s.name),
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -264,6 +277,47 @@ void _showLoadSheet(BuildContext context, AppState state) {
       },
     ),
   );
+}
+
+Future<void> _showRenameDialog(
+    BuildContext context, AppState state, String oldName) async {
+  final controller = TextEditingController(text: oldName);
+  final name = await showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: Palette.panel,
+      title: Text('Rinomina', style: display(size: 18)),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        style: mono(size: 15),
+        cursorColor: Palette.brass,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: InputDecoration(
+          hintText: 'Nuovo nome',
+          hintStyle: mono(size: 14, color: Palette.muted),
+          enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Palette.brassDim)),
+          focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Palette.brass)),
+        ),
+        onSubmitted: (v) => Navigator.pop(ctx, v),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text('Annulla', style: mono(size: 14, color: Palette.muted)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, controller.text),
+          child: Text('Rinomina', style: mono(size: 14, color: Palette.brass)),
+        ),
+      ],
+    ),
+  );
+  if (name != null && name.trim().isNotEmpty && name.trim() != oldName) {
+    state.renameSong(oldName, name);
+  }
 }
 
 Future<void> _confirmDelete(

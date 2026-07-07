@@ -5,6 +5,7 @@ import '../models/entry.dart';
 import '../models/notation.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
+import 'score_view.dart';
 
 /// Striscia dell'annotazione: chip inline per note singole, chip con note
 /// incolonnate per gli accordi. Header con play, copia e svuota.
@@ -50,6 +51,17 @@ class AnnotationStrip extends StatelessWidget {
                       spacing: 1.5)),
               const Spacer(),
               if (!empty) ...[
+                _HeaderButton(
+                  icon: Icons.visibility_outlined,
+                  tooltip: 'Visualizza a schermo intero',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ScoreView(state: state),
+                      ),
+                    );
+                  },
+                ),
                 _HeaderButton(
                   icon: state.isPlaying
                       ? Icons.stop_rounded

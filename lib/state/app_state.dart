@@ -17,6 +17,9 @@ class AppState extends ChangeNotifier {
   /// Musiche salvate con nome.
   final List<SavedSong> songs = [];
 
+  /// Nome della musica attualmente caricata/salvata (null = bozza).
+  String? loadedName;
+
   /// Indice della voce selezionata; null = "l'ultima".
   int? selected;
 
@@ -241,6 +244,7 @@ class AppState extends ChangeNotifier {
     sequence.clear();
     selected = null;
     focusMidi = null;
+    loadedName = null;
     _commit();
   }
 
@@ -263,6 +267,7 @@ class AppState extends ChangeNotifier {
     } else {
       songs.add(song);
     }
+    loadedName = trimmed;
     _persistSongs();
     notifyListeners();
   }
@@ -275,11 +280,27 @@ class AppState extends ChangeNotifier {
       ..addAll(song.cloneEntries());
     selected = null;
     focusMidi = null;
+    loadedName = song.name;
     _commit();
   }
 
   void deleteSong(String name) {
     songs.removeWhere((s) => s.name == name);
+    if (loadedName == name) loadedName = null;
+    _persistSongs();
+    notifyListeners();
+  }
+
+  /// Rinomina una musica salvata.
+  void renameSong(String oldName, String newName) {
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty) return;
+    final idx = songs.indexWhere((s) => s.name == oldName);
+    if (idx < 0) return;
+    final old = songs[idx];
+    songs[idx] =
+        SavedSong(name: trimmed, entries: old.entries, savedAt: old.savedAt);
+    if (loadedName == oldName) loadedName = trimmed;
     _persistSongs();
     notifyListeners();
   }
