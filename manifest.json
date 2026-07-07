@@ -3,7 +3,7 @@
     "short_name": "taccuino_fisarmonica",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#2C577A",
+    "background_color": "#002158",
     "theme_color": "#C8A45A",
     "description": "A new Flutter project.",
     "orientation": "portrait-primary",
