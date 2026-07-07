@@ -11,10 +11,18 @@ class PianoKeyboard extends StatefulWidget {
   final bool italian;
   final ValueChanged<int> onTap;
 
+  /// Note evidenziate (voce selezionata o in riproduzione).
+  final Set<int> highlightedMidis;
+
+  /// Diteggiatura da mostrare sui tasti evidenziati.
+  final Map<int, int> fingers;
+
   const PianoKeyboard({
     super.key,
     required this.italian,
     required this.onTap,
+    this.highlightedMidis = const {},
+    this.fingers = const {},
   });
 
   @override
@@ -109,6 +117,9 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
   Widget _buildWhiteKey(int midi) {
     final i = _whiteDisplayIndex(midi);
     final pressed = _flash.contains(midi);
+    final highlighted = widget.highlightedMidis.contains(midi);
+    final active = pressed || highlighted;
+    final finger = highlighted ? widget.fingers[midi] : null;
     return Positioned(
       top: i * whiteH,
       left: 0,
@@ -121,20 +132,27 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: pressed
+              colors: active
                   ? const [Palette.brass, Color(0xFFD9BD7C), Palette.brassDim]
                   : const [Palette.whiteTop, Palette.whiteMid, Palette.whiteBot],
             ),
-            border: const Border(
-              left: BorderSide(color: Palette.brass, width: 3),
-              bottom: BorderSide(color: Palette.line, width: 1),
+            border: Border(
+              left: BorderSide(
+                  color: highlighted ? Palette.ivory : Palette.brass,
+                  width: highlighted ? 5 : 3),
+              bottom: const BorderSide(color: Palette.line, width: 1),
             ),
           ),
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 14),
-          child: _keyLabel(
-            midi,
-            color: pressed ? Palette.brassDeep : const Color(0xFF6B5E4C),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              _fingerOnKey(finger, small: false),
+              const Spacer(),
+              _keyLabel(
+                midi,
+                color: active ? Palette.brassDeep : const Color(0xFF6B5E4C),
+              ),
+            ],
           ),
         ),
       ),
@@ -148,6 +166,9 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
     final lowerWhiteIndex = _whiteDisplayIndex(midi - 1);
     final boundaryY = (lowerWhiteIndex + 1) * whiteH;
     final pressed = _flash.contains(midi);
+    final highlighted = widget.highlightedMidis.contains(midi);
+    final active = pressed || highlighted;
+    final finger = highlighted ? widget.fingers[midi] : null;
     return Positioned(
       top: boundaryY - blackH / 2,
       right: 0,
@@ -161,28 +182,61 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: pressed
-                    ? const [Palette.brassDim, Palette.brassDeep, Color(0xFF2A2411)]
+                colors: active
+                    ? const [Palette.brass, Palette.brassDim, Palette.brassDeep]
                     : const [Palette.blackTop, Palette.blackMid, Palette.blackBot],
               ),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(4),
                 bottomLeft: Radius.circular(4),
               ),
+              border: highlighted
+                  ? const Border(
+                      left: BorderSide(color: Palette.ivory, width: 2),
+                      top: BorderSide(color: Palette.ivory, width: 2),
+                      bottom: BorderSide(color: Palette.ivory, width: 2),
+                    )
+                  : null,
               boxShadow: const [
                 BoxShadow(color: Colors.black54, blurRadius: 4, offset: Offset(-1, 1)),
               ],
             ),
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 10),
-            child: _keyLabel(
-              midi,
-              color: pressed ? Palette.ivory : Palette.brass,
-              small: true,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                _fingerOnKey(finger, small: true),
+                const Spacer(),
+                _keyLabel(
+                  midi,
+                  color: active ? Palette.bg : Palette.brass,
+                  small: true,
+                ),
+              ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// Pallino con il numero del dito, mostrato sul tasto evidenziato.
+  Widget _fingerOnKey(int? finger, {required bool small}) {
+    if (finger == null) return const SizedBox.shrink();
+    final d = small ? 17.0 : 22.0;
+    return Container(
+      width: d,
+      height: d,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Palette.brassDeep,
+        shape: BoxShape.circle,
+        border: Border.all(color: Palette.ivory, width: 1.5),
+      ),
+      child: Text('$finger',
+          style: mono(
+              size: small ? 10 : 12,
+              weight: FontWeight.w800,
+              color: Palette.ivory)),
     );
   }
 

@@ -27,6 +27,8 @@ class HomeScreen extends StatelessWidget {
                   child: PianoKeyboard(
                     italian: state.italian,
                     onTap: state.onKeyTap,
+                    highlightedMidis: state.highlightedMidis,
+                    fingers: state.highlightedFingers,
                   ),
                 ),
               ],

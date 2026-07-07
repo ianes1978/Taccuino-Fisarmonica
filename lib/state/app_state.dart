@@ -77,6 +77,22 @@ class AppState extends ChangeNotifier {
     return i == null ? null : sequence[i];
   }
 
+  /// Voce "attiva" da rispecchiare sulla tastiera: quella in riproduzione se si
+  /// sta ascoltando, altrimenti la voce bersaglio (selezionata o ultima).
+  Entry? get _activeEntry {
+    final p = playingIndex;
+    if (isPlaying && p != null && p >= 0 && p < sequence.length) {
+      return sequence[p];
+    }
+    return targetEntry;
+  }
+
+  /// Note da evidenziare sui tasti.
+  Set<int> get highlightedMidis => _activeEntry?.midis.toSet() ?? const {};
+
+  /// Diteggiatura da riportare sui tasti evidenziati.
+  Map<int, int> get highlightedFingers => _activeEntry?.fingers ?? const {};
+
   /// Nota effettivamente a fuoco (per la diteggiatura) nella voce bersaglio.
   int? get effectiveFocusMidi {
     final e = targetEntry;
