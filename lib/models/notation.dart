@@ -1,8 +1,9 @@
 import 'entry.dart';
 
-/// Range della tastiera: Do4 (C4, MIDI 60) .. Mi6 (E6, MIDI 88).
-const int kLowMidi = 60;
-const int kHighMidi = 88;
+/// Range della tastiera: Si3 (B3, MIDI 59) .. Do6 (C6, MIDI 84).
+/// Vista fisarmonica: la più grave (B3) è in cima, la più acuta (C6) in fondo.
+const int kLowMidi = 59;
+const int kHighMidi = 84;
 
 /// Massimo numero di trattini di durata.
 const int kMaxLen = 8;

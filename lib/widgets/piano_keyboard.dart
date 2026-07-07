@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import '../models/notation.dart';
 import '../theme.dart';
 
-/// Pianoforte verticale: nota più acuta in cima, più grave in fondo.
-/// Do4 (60) in basso .. Mi6 (88) in alto.
+/// Tastiera verticale in vista fisarmonica: nota più grave in cima,
+/// più acuta in fondo. Si3 (B3, 59) in cima .. Do6 (C6, 84) in fondo.
 class PianoKeyboard extends StatefulWidget {
   final bool italian;
   final ValueChanged<int> onTap;
@@ -52,11 +52,8 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
     super.dispose();
   }
 
-  /// Indice di display (0 = più acuto, in cima) per una nota bianca.
-  int _whiteDisplayIndex(int midi) {
-    final asc = _whiteMidis.indexOf(midi);
-    return _whiteMidis.length - 1 - asc;
-  }
+  /// Indice di display (0 = più grave, in cima — vista fisarmonica).
+  int _whiteDisplayIndex(int midi) => _whiteMidis.indexOf(midi);
 
   double get _totalHeight => _whiteMidis.length * whiteH;
 
@@ -145,11 +142,11 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
   }
 
   Widget _buildBlackKey(int midi, double keyboardWidth) {
-    // Centrato sul confine tra i due tasti bianchi corretti: il bianco appena
-    // sotto (midi-1) e quello appena sopra (midi+1). Il confine è il bordo
-    // superiore del bianco inferiore.
+    // Centrato sul confine tra i due tasti bianchi corretti. In vista
+    // fisarmonica il bianco più grave (midi-1) sta più in alto: il confine con
+    // quello più acuto (midi+1) è il suo bordo INFERIORE.
     final lowerWhiteIndex = _whiteDisplayIndex(midi - 1);
-    final boundaryY = lowerWhiteIndex * whiteH;
+    final boundaryY = (lowerWhiteIndex + 1) * whiteH;
     final pressed = _flash.contains(midi);
     return Positioned(
       top: boundaryY - blackH / 2,
