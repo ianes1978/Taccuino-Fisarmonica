@@ -291,6 +291,23 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Aggiunge una musica importata (evita di sovrascrivere un nome esistente).
+  /// Ritorna il nome effettivo con cui è stata salvata.
+  String addImportedSong(SavedSong song) {
+    var name = song.name.trim().isEmpty ? 'Importato' : song.name.trim();
+    while (songs.any((s) => s.name.toLowerCase() == name.toLowerCase())) {
+      name = '$name (importato)';
+    }
+    songs.add(SavedSong(
+      name: name,
+      entries: song.entries,
+      savedAt: song.savedAt.isEmpty ? '' : song.savedAt,
+    ));
+    _persistSongs();
+    notifyListeners();
+    return name;
+  }
+
   /// Rinomina una musica salvata.
   void renameSong(String oldName, String newName) {
     final trimmed = newName.trim();

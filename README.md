@@ -25,6 +25,8 @@ salva il lavoro tra un avvio e l'altro.
   ed elimina) dal menu ☰ in alto.
 - **👁 Vista a schermo intero**: note formattate con a-capo automatici, senza
   tastiera, con **+/−** per ridimensionare il testo.
+- **Esporta PDF** (menu ☰) della sequenza corrente; **Esporta JSON** per ogni
+  musica salvata (`[titolo].json`, portabile) e **Importa JSON…** dal menu.
 - Font: Fraunces (titoli) + Space Mono (note), palette legno/ottone/avorio.
 - Icona app (Android + Web) generata da `assets/icon/app_icon.png`.
 

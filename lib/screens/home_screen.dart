@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/saved_song.dart';
+import '../services/export_service.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/annotation_strip.dart';
@@ -113,41 +115,65 @@ class _MenuButton extends StatelessWidget {
           _showSaveDialog(context, state);
         } else if (v == 'load') {
           _showLoadSheet(context, state);
+        } else if (v == 'pdf') {
+          _exportPdf(context, state);
+        } else if (v == 'import') {
+          _importJson(context, state);
         }
       },
       itemBuilder: (context) => [
-        PopupMenuItem(
-          value: 'quicksave',
-          child: Row(children: [
-            const Icon(Icons.save, size: 20, color: Palette.ivory),
-            const SizedBox(width: 10),
-            Text(
-                state.loadedName != null
-                    ? 'Salva "${state.loadedName}"'
-                    : 'Salva',
-                style: mono(size: 14)),
-          ]),
-        ),
-        PopupMenuItem(
-          value: 'saveas',
-          child: Row(children: [
-            const Icon(Icons.save_as_outlined, size: 20, color: Palette.ivory),
-            const SizedBox(width: 10),
-            Text('Salva con nome', style: mono(size: 14)),
-          ]),
-        ),
-        PopupMenuItem(
-          value: 'load',
-          child: Row(children: [
-            const Icon(Icons.folder_open_outlined,
-                size: 20, color: Palette.ivory),
-            const SizedBox(width: 10),
-            Text('Carica…', style: mono(size: 14)),
-          ]),
-        ),
+        _menuItem('quicksave', Icons.save,
+            state.loadedName != null ? 'Salva "${state.loadedName}"' : 'Salva'),
+        _menuItem('saveas', Icons.save_as_outlined, 'Salva con nome'),
+        _menuItem('load', Icons.folder_open_outlined, 'Carica…'),
+        const PopupMenuDivider(),
+        _menuItem('pdf', Icons.picture_as_pdf_outlined, 'Esporta PDF'),
+        _menuItem('import', Icons.file_upload_outlined, 'Importa JSON…'),
       ],
     );
   }
+}
+
+PopupMenuItem<String> _menuItem(String value, IconData icon, String label) {
+  return PopupMenuItem<String>(
+    value: value,
+    child: Row(children: [
+      Icon(icon, size: 20, color: Palette.ivory),
+      const SizedBox(width: 10),
+      Text(label, style: mono(size: 14)),
+    ]),
+  );
+}
+
+Future<void> _exportPdf(BuildContext context, AppState state) async {
+  if (state.isEmpty) {
+    _toast(context, 'Niente da esportare');
+    return;
+  }
+  try {
+    await ExportService.exportPdf(
+      entries: state.sequence,
+      italian: state.italian,
+      title: state.loadedName,
+    );
+  } catch (_) {
+    if (context.mounted) _toast(context, 'Export PDF non riuscito');
+  }
+}
+
+Future<void> _importJson(BuildContext context, AppState state) async {
+  SavedSong? song;
+  try {
+    song = await ExportService.importSongJson();
+  } catch (_) {
+    song = null;
+  }
+  if (song == null) {
+    if (context.mounted) _toast(context, 'Nessun file importato');
+    return;
+  }
+  final name = state.addImportedSong(song);
+  if (context.mounted) _toast(context, 'Importato "$name"');
 }
 
 void _quickSave(BuildContext context, AppState state) {
@@ -288,16 +314,14 @@ void _showLoadSheet(BuildContext context, AppState state) {
                             state.loadSong(s);
                             Navigator.pop(ctx);
                           },
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.visibility_outlined,
-                                    color: Palette.brass),
-                                tooltip: 'Anteprima',
-                                iconSize: 20,
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () {
+                          trailing: PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_vert,
+                                color: Palette.muted),
+                            color: Palette.panel,
+                            tooltip: 'Azioni',
+                            onSelected: (v) {
+                              switch (v) {
+                                case 'preview':
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => ScoreView(
@@ -307,26 +331,27 @@ void _showLoadSheet(BuildContext context, AppState state) {
                                       ),
                                     ),
                                   );
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.edit_outlined,
-                                    color: Palette.muted),
-                                tooltip: 'Rinomina',
-                                iconSize: 20,
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () =>
-                                    _showRenameDialog(context, state, s.name),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline,
-                                    color: Palette.muted),
-                                tooltip: 'Elimina',
-                                iconSize: 20,
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () =>
-                                    _confirmDelete(context, state, s.name),
-                              ),
+                                  break;
+                                case 'json':
+                                  ExportService.exportSongJson(s);
+                                  break;
+                                case 'rename':
+                                  _showRenameDialog(context, state, s.name);
+                                  break;
+                                case 'delete':
+                                  _confirmDelete(context, state, s.name);
+                                  break;
+                              }
+                            },
+                            itemBuilder: (_) => [
+                              _menuItem('preview', Icons.visibility_outlined,
+                                  'Anteprima'),
+                              _menuItem('json', Icons.download_outlined,
+                                  'Esporta JSON'),
+                              _menuItem(
+                                  'rename', Icons.edit_outlined, 'Rinomina'),
+                              _menuItem(
+                                  'delete', Icons.delete_outline, 'Elimina'),
                             ],
                           ),
                         );
