@@ -29,10 +29,10 @@ flutter_launcher_icons:
   image_path: "assets/icon/app_icon.png"
   android: true
   min_sdk_android: 21
-  adaptive_icon_background: "#2C577A"
+  adaptive_icon_background: "#002158"
   adaptive_icon_foreground: "assets/icon/app_icon.png"
   web:
     generate: true
     image_path: "assets/icon/app_icon.png"
-    background_color: "#2C577A"
+    background_color: "#002158"
     theme_color: "#C8A45A"
