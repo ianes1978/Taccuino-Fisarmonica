@@ -49,8 +49,35 @@ String _noteWithFinger(Entry e, int midi, {required bool italian}) {
 ///  - singola: `La4(3)--`
 ///  - accordo (verticale): `[Do4(1) Mi4(3) Sol4(5)]--`
 ///  - abbellimento (orizzontale): `{Do4 Re4 Mi4}--`
+/// Etichetta di un bottone dei bassi (Stradella).
+/// Codice = tipo*12 + nota. Contrabbasso: nome della TERZA reale in
+/// minuscolo (do); basso: nome (Do); accordi: DoM, Dom, Do7, Dod.
+String bassLabel(int code, {required bool italian}) {
+  final pc = code % 12;
+  final type = code ~/ 12;
+  switch (type) {
+    case 0:
+      return noteName((pc + 4) % 12, italian: italian).toLowerCase();
+    case 1:
+      return noteName(pc, italian: italian);
+    case 2:
+      return '${noteName(pc, italian: italian)}M';
+    case 3:
+      return '${noteName(pc, italian: italian)}m';
+    case 4:
+      return '${noteName(pc, italian: italian)}7';
+    default:
+      return '${noteName(pc, italian: italian)}d';
+  }
+}
+
 String formatEntry(Entry e, {required bool italian}) {
   if (e.isText) return '«${e.label}»';
+  if (e.isBass) {
+    final inside =
+        e.basses.map((c) => bassLabel(c, italian: italian)).join(' ');
+    return '⟨$inside⟩${_dashes(e.len)}';
+  }
   final tail = _dashes(e.len);
   final inside =
       e.midis.map((m) => _noteWithFinger(e, m, italian: italian)).join(' ');

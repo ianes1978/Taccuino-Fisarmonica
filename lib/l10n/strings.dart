@@ -72,6 +72,8 @@ class Str {
   final String playbackSection;
   final String playbackSpeedLabel;
   final String ornamentSpeedLabel;
+  final String switchToBass;
+  final String switchToKeyboard;
 
   const Str({
     required this.annotation,
@@ -143,6 +145,8 @@ class Str {
     required this.playbackSection,
     required this.playbackSpeedLabel,
     required this.ornamentSpeedLabel,
+    required this.switchToBass,
+    required this.switchToKeyboard,
   });
 }
 
@@ -220,6 +224,8 @@ final Str strIt = Str(
   playbackSection: 'Riproduzione',
   playbackSpeedLabel: 'Velocità di riproduzione',
   ornamentSpeedLabel: 'Velocità abbellimenti',
+  switchToBass: 'Bassi',
+  switchToKeyboard: 'Tastiera',
 );
 
 final Str strEn = Str(
@@ -292,6 +298,8 @@ final Str strEn = Str(
   playbackSection: 'Playback',
   playbackSpeedLabel: 'Playback speed',
   ornamentSpeedLabel: 'Ornament speed',
+  switchToBass: 'Bass',
+  switchToKeyboard: 'Keyboard',
 );
 
 final Str strPt = Str(
@@ -364,6 +372,8 @@ final Str strPt = Str(
   playbackSection: 'Reprodução',
   playbackSpeedLabel: 'Velocidade de reprodução',
   ornamentSpeedLabel: 'Velocidade dos ornamentos',
+  switchToBass: 'Baixos',
+  switchToKeyboard: 'Teclado',
 );
 
 /// Risolve la lingua: 'system' usa la lingua del dispositivo; it/en/pt

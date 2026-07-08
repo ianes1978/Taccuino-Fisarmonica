@@ -23,6 +23,10 @@ class Entry {
   /// Etichetta di testo (voce senza note): sottotitolo di sezione.
   String? label;
 
+  /// Giro di bassi: bottoni Stradella in sequenza. Ogni codice è
+  /// tipo*12 + nota (tipo: 0=contrabbasso, 1=basso, 2=Magg, 3=min, 4=7ª, 5=dim).
+  List<int> basses;
+
   Entry({
     required this.midis,
     this.len = 0,
@@ -30,8 +34,10 @@ class Entry {
     Map<int, int>? fingers2,
     this.run = false,
     this.label,
+    List<int>? basses,
   })  : fingers = fingers ?? {},
-        fingers2 = fingers2 ?? {} {
+        fingers2 = fingers2 ?? {},
+        basses = basses ?? [] {
     if (!run) midis.sort();
   }
 
@@ -41,7 +47,8 @@ class Entry {
         fingers = {},
         fingers2 = {},
         run = false,
-        label = null;
+        label = null,
+        basses = [];
 
   Entry.run(List<int> midis, {int len = 0})
       : midis = List.of(midis),
@@ -49,7 +56,8 @@ class Entry {
         fingers = {},
         fingers2 = {},
         run = true,
-        label = null;
+        label = null,
+        basses = [];
 
   Entry.text(String text)
       : midis = [],
@@ -57,9 +65,29 @@ class Entry {
         fingers = {},
         fingers2 = {},
         run = false,
-        label = text;
+        label = text,
+        basses = [];
+
+  Entry.bass(List<int> codes)
+      : midis = [],
+        len = 0,
+        fingers = {},
+        fingers2 = {},
+        run = false,
+        label = null,
+        basses = List.of(codes);
 
   bool get isText => label != null;
+
+  bool get isBass => basses.isNotEmpty;
+
+  void addBass(int code) => basses.add(code);
+
+  /// Rimuove l'ultimo bottone del giro; true se il giro è rimasto vuoto.
+  bool removeLastBass() {
+    if (basses.isNotEmpty) basses.removeLast();
+    return basses.isEmpty;
+  }
 
   void addNote(int midi) {
     if (run) {
@@ -140,6 +168,7 @@ class Entry {
           'f2': fingers2.map((k, v) => MapEntry(k.toString(), v)),
         if (run) 'r': true,
         if (label != null) 't': label,
+        if (basses.isNotEmpty) 'b': basses,
       };
 
   factory Entry.fromJson(Map<String, dynamic> j) => Entry(
@@ -149,6 +178,8 @@ class Entry {
         len: (j['l'] as int?) ?? 0,
         run: j['r'] == true,
         label: j['t'] as String?,
+        basses:
+            ((j['b'] as List?) ?? const []).map((e) => e as int).toList(),
         fingers: (j['f'] as Map?)?.map(
               (k, v) => MapEntry(int.parse(k as String), v as int),
             ) ??

@@ -8,6 +8,7 @@ import 'settings_screen.dart';
 import '../theme.dart';
 import '../widgets/annotation_strip.dart';
 import '../widgets/control_bar.dart';
+import '../widgets/bass_board.dart';
 import '../widgets/piano_keyboard.dart';
 import '../widgets/score_view.dart';
 
@@ -28,14 +29,19 @@ class HomeScreen extends StatelessWidget {
                 AnnotationStrip(state: state),
                 ControlBar(state: state),
                 Expanded(
-                  child: PianoKeyboard(
-                    italian: state.italian,
-                    onTap: state.onKeyTap,
-                    highlightedMidis: state.highlightedMidis,
-                    focusMidi: state.keyboardFocusMidi,
-                    fingers: state.highlightedFingers,
-                    fingers2: state.highlightedFingers2,
-                  ),
+                  child: state.bassMode
+                      ? BassBoard(
+                          italian: state.italian,
+                          onTap: state.onBassTap,
+                        )
+                      : PianoKeyboard(
+                          italian: state.italian,
+                          onTap: state.onKeyTap,
+                          highlightedMidis: state.highlightedMidis,
+                          focusMidi: state.keyboardFocusMidi,
+                          fingers: state.highlightedFingers,
+                          fingers2: state.highlightedFingers2,
+                        ),
                 ),
               ],
             );

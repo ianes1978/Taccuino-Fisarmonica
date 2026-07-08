@@ -52,6 +52,18 @@ class AnnotationStrip extends StatelessWidget {
                       weight: FontWeight.w700,
                       spacing: 1.5)),
               const Spacer(),
+              _HeaderButton(
+                icon: state.bassMode
+                    ? Icons.piano
+                    : Icons.radio_button_checked,
+                tooltip: state.bassMode
+                    ? state.tr.switchToKeyboard
+                    : state.tr.switchToBass,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  state.toggleBassMode();
+                },
+              ),
               if (!empty) ...[
                 _HeaderButton(
                   icon: Icons.visibility_outlined,
@@ -255,7 +267,35 @@ class _EntryChipState extends State<_EntryChip> {
   Widget build(BuildContext context) {
     final dashes = '-' * entry.len;
     final Widget content;
-    if (entry.isText) {
+    if (entry.isBass) {
+      // Giro di bassi: bottoni in fila fra parentesi angolari.
+      content = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.radio_button_checked,
+              size: 12, color: Palette.muted),
+          const SizedBox(width: 3),
+          Text('⟨',
+              style: mono(
+                  size: 16, weight: FontWeight.w700, color: Palette.brass)),
+          for (final c in entry.basses)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Text(bassLabel(c, italian: italian),
+                  style: mono(size: 13, weight: FontWeight.w700)),
+            ),
+          Text('⟩',
+              style: mono(
+                  size: 16, weight: FontWeight.w700, color: Palette.brass)),
+          if (dashes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 3),
+              child:
+                  Text(dashes, style: mono(size: 16, weight: FontWeight.w700)),
+            ),
+        ],
+      );
+    } else if (entry.isText) {
       // Etichetta di sezione: stile distinto (Fraunces, icona testo).
       content = Row(
         mainAxisSize: MainAxisSize.min,

@@ -54,6 +54,14 @@ class AppState extends ChangeNotifier {
   /// Modalità "prova": i tasti suonano soltanto, senza scrivere.
   bool practiceMode = false;
 
+  /// Bottoniera bassi al posto della tastiera.
+  bool bassMode = false;
+
+  void toggleBassMode() {
+    bassMode = !bassMode;
+    notifyListeners();
+  }
+
   /// Riproduzione in corso.
   bool isPlaying = false;
   int? playingIndex;
@@ -227,8 +235,8 @@ class AppState extends ChangeNotifier {
       return;
     }
     final t = sequence[i];
-    // Un'etichetta di testo non può ospitare note: crea un abbellimento dopo.
-    if (t.isText) {
+    // Etichette di testo e giri di bassi: crea un abbellimento dopo.
+    if (t.isText || t.isBass) {
       sequence.insert(i + 1, Entry.run([midi]));
       selected = i + 1;
       focusMidi = midi;
@@ -262,8 +270,8 @@ class AppState extends ChangeNotifier {
       return;
     }
     final entry = sequence[i];
-    // Un'etichetta di testo non può ospitare note: crea una voce nuova dopo.
-    if (entry.isText) {
+    // Etichette di testo e giri di bassi non ospitano note: voce nuova dopo.
+    if (entry.isText || entry.isBass) {
       sequence.insert(i + 1, Entry.single(midi));
       selected = i + 1;
       focusMidi = midi;
@@ -284,6 +292,54 @@ class AppState extends ChangeNotifier {
       focusMidi = midi;
     }
     _commit();
+  }
+
+  /// Tocco su un bottone dei bassi: suona e accoda al giro corrente
+  /// (o ne crea uno nuovo dopo la voce selezionata).
+  void onBassTap(int code) {
+    _playBassCode(code);
+    if (practiceMode) return;
+    final i = targetIndex;
+    if (i != null && sequence[i].isBass) {
+      sequence[i].addBass(code);
+      selected = i;
+    } else {
+      final at = i == null ? sequence.length : i + 1;
+      sequence.insert(at, Entry.bass([code]));
+      selected = at;
+    }
+    focusMidi = null;
+    _commit();
+  }
+
+  /// Suona un bottone Stradella: bassi = nota grave singola,
+  /// accordi = triadi/settima nell'ottava medio-bassa.
+  void _playBassCode(int code) {
+    if (!audioOn) return;
+    final pc = code % 12;
+    final type = code ~/ 12;
+    switch (type) {
+      case 0: // contrabbasso: terza reale, registro grave
+        _synth.play(36 + (pc + 4) % 12);
+      case 1: // basso
+        _synth.play(36 + pc);
+      case 2: // Maggiore
+        for (final iv in const [0, 4, 7]) {
+          _synth.play(48 + pc + iv);
+        }
+      case 3: // minore
+        for (final iv in const [0, 3, 7]) {
+          _synth.play(48 + pc + iv);
+        }
+      case 4: // settima (senza quinta, come sulla Stradella)
+        for (final iv in const [0, 4, 10]) {
+          _synth.play(48 + pc + iv);
+        }
+      default: // diminuita
+        for (final iv in const [0, 3, 9]) {
+          _synth.play(48 + pc + iv);
+        }
+    }
   }
 
   // --- Durata / cancellazione / selezione ----------------------------------
@@ -338,6 +394,12 @@ class AppState extends ChangeNotifier {
     if (i == null) return;
     final e = sequence[i];
     final m = effectiveFocusMidi;
+    if (e.isBass && e.basses.length > 1) {
+      // Giro di bassi: toglie l'ultimo bottone.
+      e.removeLastBass();
+      _commit();
+      return;
+    }
     if (e.run && e.midis.length > 1) {
       // Abbellimento: toglie la nota a fuoco (un'occorrenza, per i trilli);
       // senza fuoco valido, l'ultima.
@@ -398,6 +460,13 @@ class AppState extends ChangeNotifier {
   /// Suona una voce: accordo insieme, abbellimento in rapida successione.
   Future<void> _playEntrySound(Entry e) async {
     if (!audioOn) return;
+    if (e.isBass) {
+      for (final c in e.basses) {
+        _playBassCode(c);
+        await Future.delayed(Duration(milliseconds: _scaledMs(280)));
+      }
+      return;
+    }
     if (e.run) {
       for (final m in e.midis) {
         _synth.play(m);
@@ -563,6 +632,16 @@ class AppState extends ChangeNotifier {
       if (e.isText) {
         // Etichetta di sezione: breve pausa, nessun suono.
         await Future.delayed(Duration(milliseconds: _scaledMs(200)));
+        continue;
+      }
+      if (e.isBass) {
+        // Giro di bassi: i bottoni in sequenza ritmica.
+        for (final c in e.basses) {
+          if (token != _playToken) break;
+          _playBassCode(c);
+          await Future.delayed(Duration(milliseconds: _scaledMs(320)));
+        }
+        await Future.delayed(Duration(milliseconds: _scaledMs(e.len * 170)));
         continue;
       }
       if (e.run) {
