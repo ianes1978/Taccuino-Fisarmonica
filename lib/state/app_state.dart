@@ -372,6 +372,24 @@ class AppState extends ChangeNotifier {
     _commit();
   }
 
+  /// Inserisce una pausa (silenzio) nella riga dei bassi.
+  void addBassRest() {
+    final i = bassTargetIndex;
+    final at = i == null ? bassSeq.length : i + 1;
+    bassSeq.insert(at, Entry.bass([kBassRest]));
+    selectedBass = at;
+    _commit();
+  }
+
+  /// Basso continuo: attiva/disattiva il sostegno sulla voce bassi selezionata.
+  void toggleBassSustain() {
+    final e = bassTargetEntry;
+    if (e == null || e.run) return;
+    if (e.basses.every((c) => c < 0)) return; // le pause non si sostengono
+    e.sustain = !e.sustain;
+    _commit();
+  }
+
   void selectBassEntry(int index) {
     selectedBass = index;
     _playEntrySound(bassSeq[index]);
@@ -392,7 +410,7 @@ class AppState extends ChangeNotifier {
   /// Suona un bottone Stradella: bassi = nota grave singola,
   /// accordi = triadi/settima nell'ottava medio-bassa.
   void _playBassCode(int code) {
-    if (!audioOn) return;
+    if (!audioOn || code < 0) return; // pausa: nessun suono
     final pc = code % 12;
     final type = code ~/ 12;
     switch (type) {
@@ -808,12 +826,27 @@ class AppState extends ChangeNotifier {
         await Future.delayed(
             Duration(milliseconds: _scaledMs(120 + e.len * 170)));
       } else {
-        // Singolo o accordo: bottoni insieme.
-        for (final c in e.basses) {
-          _playBassCode(c);
+        // Singolo o accordo: bottoni insieme. Se continuo, ribatte il
+        // suono per tutta la durata (fino all'attacco del chip successivo).
+        final slot = _scaledMs(280 + e.len * 170);
+        if (e.sustain) {
+          var elapsed = 0;
+          final step = _scaledMs(450);
+          while (elapsed < slot) {
+            if (token != _playToken) break;
+            for (final c in e.basses) {
+              _playBassCode(c);
+            }
+            final wait = (slot - elapsed) < step ? (slot - elapsed) : step;
+            await Future.delayed(Duration(milliseconds: wait));
+            elapsed += wait;
+          }
+        } else {
+          for (final c in e.basses) {
+            _playBassCode(c);
+          }
+          await Future.delayed(Duration(milliseconds: slot));
         }
-        await Future.delayed(
-            Duration(milliseconds: _scaledMs(280 + e.len * 170)));
       }
     }
   }

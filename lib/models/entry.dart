@@ -24,8 +24,13 @@ class Entry {
   String? label;
 
   /// Giro di bassi: bottoni Stradella in sequenza. Ogni codice è
-  /// tipo*12 + nota (tipo: 0=contrabbasso, 1=basso, 2=Magg, 3=min, 4=7ª, 5=dim).
+  /// tipo*12 + nota (tipo: 0=contrabbasso, 1=basso, 2=Magg, 3=min, 4=7ª,
+  /// 5=dim); -1 = pausa (silenzio).
   List<int> basses;
+
+  /// Basso continuo: il suono si sostiene per tutta la durata della voce
+  /// (ribattuto nel Play) fino all'attacco del chip successivo.
+  bool sustain;
 
   Entry({
     required this.midis,
@@ -35,6 +40,7 @@ class Entry {
     this.run = false,
     this.label,
     List<int>? basses,
+    this.sustain = false,
   })  : fingers = fingers ?? {},
         fingers2 = fingers2 ?? {},
         basses = basses ?? [] {
@@ -48,7 +54,8 @@ class Entry {
         fingers2 = {},
         run = false,
         label = null,
-        basses = [];
+        basses = [],
+        sustain = false;
 
   Entry.run(List<int> midis, {int len = 0})
       : midis = List.of(midis),
@@ -57,7 +64,8 @@ class Entry {
         fingers2 = {},
         run = true,
         label = null,
-        basses = [];
+        basses = [],
+        sustain = false;
 
   Entry.text(String text)
       : midis = [],
@@ -66,7 +74,8 @@ class Entry {
         fingers2 = {},
         run = false,
         label = text,
-        basses = [];
+        basses = [],
+        sustain = false;
 
   Entry.bass(List<int> codes, {bool run = false})
       : midis = [],
@@ -75,7 +84,8 @@ class Entry {
         fingers2 = {},
         run = run,
         label = null,
-        basses = List.of(codes);
+        basses = List.of(codes),
+        sustain = false;
 
   bool get isText => label != null;
 
@@ -186,6 +196,7 @@ class Entry {
         if (run) 'r': true,
         if (label != null) 't': label,
         if (basses.isNotEmpty) 'b': basses,
+        if (sustain) 'c': true,
       };
 
   factory Entry.fromJson(Map<String, dynamic> j) => Entry(

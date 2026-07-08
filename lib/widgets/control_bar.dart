@@ -121,45 +121,76 @@ class ControlBar extends StatelessWidget {
                 },
               ),
               const Spacer(),
-              // Dita 1..5: ri-toccare il dito attivo lo toglie.
-              // Dita: tap = principale (ri-tocco toglie); long-press su un
-              // altro numero = sostituzione del dito (es. 3-1).
-              for (var f = 1; f <= 5; f++)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: _SquareBtn(
-                    width: 36,
-                    tooltip: state.tr.fingerN(f),
-                    enabled: fingersEnabled,
-                    active: state.currentFinger == f,
-                    semi: state.currentFinger2 == f,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      if (state.currentFinger == f) {
-                        state.clearFinger();
-                      } else {
-                        state.setFinger(f);
-                      }
-                    },
-                    onLongPress: () {
-                      HapticFeedback.mediumImpact();
-                      state.toggleFinger2(f);
-                    },
-                    child: Text(
-                      '$f',
-                      style: mono(
-                        size: 14,
-                        weight: FontWeight.w700,
-                        color: (state.currentFinger == f ||
-                                state.currentFinger2 == f)
-                            ? Palette.bg
-                            : (fingersEnabled
-                                ? Palette.brass
-                                : Palette.brassDeep),
+              if (state.bassMode) ...[
+                // Bottoniera attiva: continuo (sostiene fino al chip dopo)
+                // e pausa (silenzio) al posto delle dita.
+                _SquareBtn(
+                  width: 52,
+                  tooltip: state.tr.bassSustain,
+                  enabled: state.bassTargetEntry != null &&
+                      !(state.bassTargetEntry?.run ?? false),
+                  active: state.bassTargetEntry?.sustain == true,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    state.toggleBassSustain();
+                  },
+                  child: Icon(Icons.arrow_right_alt,
+                      size: 24,
+                      color: state.bassTargetEntry?.sustain == true
+                          ? Palette.bg
+                          : Palette.brass),
+                ),
+                const SizedBox(width: 6),
+                _SquareBtn(
+                  width: 52,
+                  tooltip: state.tr.bassRest,
+                  enabled: true,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    state.addBassRest();
+                  },
+                  child:
+                      const Icon(Icons.music_off, size: 20, color: Palette.brass),
+                ),
+              ] else
+                // Dita 1..5: tap = principale (ri-tocco toglie);
+                // long-press su un altro numero = sostituzione (es. 3-1).
+                for (var f = 1; f <= 5; f++)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: _SquareBtn(
+                      width: 36,
+                      tooltip: state.tr.fingerN(f),
+                      enabled: fingersEnabled,
+                      active: state.currentFinger == f,
+                      semi: state.currentFinger2 == f,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        if (state.currentFinger == f) {
+                          state.clearFinger();
+                        } else {
+                          state.setFinger(f);
+                        }
+                      },
+                      onLongPress: () {
+                        HapticFeedback.mediumImpact();
+                        state.toggleFinger2(f);
+                      },
+                      child: Text(
+                        '$f',
+                        style: mono(
+                          size: 14,
+                          weight: FontWeight.w700,
+                          color: (state.currentFinger == f ||
+                                  state.currentFinger2 == f)
+                              ? Palette.bg
+                              : (fingersEnabled
+                                  ? Palette.brass
+                                  : Palette.brassDeep),
+                        ),
                       ),
                     ),
                   ),
-                ),
             ],
           ),
         ],

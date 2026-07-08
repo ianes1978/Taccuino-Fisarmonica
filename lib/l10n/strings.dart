@@ -74,6 +74,8 @@ class Str {
   final String ornamentSpeedLabel;
   final String switchToBass;
   final String switchToKeyboard;
+  final String bassSustain;
+  final String bassRest;
 
   const Str({
     required this.annotation,
@@ -147,6 +149,8 @@ class Str {
     required this.ornamentSpeedLabel,
     required this.switchToBass,
     required this.switchToKeyboard,
+    required this.bassSustain,
+    required this.bassRest,
   });
 }
 
@@ -226,6 +230,8 @@ final Str strIt = Str(
   ornamentSpeedLabel: 'Velocità abbellimenti',
   switchToBass: 'Bassi',
   switchToKeyboard: 'Tastiera',
+  bassSustain: 'Basso continuo',
+  bassRest: 'Pausa (silenzio)',
 );
 
 final Str strEn = Str(
@@ -300,6 +306,8 @@ final Str strEn = Str(
   ornamentSpeedLabel: 'Ornament speed',
   switchToBass: 'Bass',
   switchToKeyboard: 'Keyboard',
+  bassSustain: 'Sustained bass',
+  bassRest: 'Rest (silence)',
 );
 
 final Str strPt = Str(
@@ -374,6 +382,8 @@ final Str strPt = Str(
   ornamentSpeedLabel: 'Velocidade dos ornamentos',
   switchToBass: 'Baixos',
   switchToKeyboard: 'Teclado',
+  bassSustain: 'Baixo contínuo',
+  bassRest: 'Pausa (silêncio)',
 );
 
 /// Risolve la lingua: 'system' usa la lingua del dispositivo; it/en/pt

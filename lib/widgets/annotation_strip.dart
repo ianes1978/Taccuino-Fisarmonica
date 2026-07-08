@@ -240,14 +240,15 @@ class _BassChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final labels =
         entry.basses.map((c) => bassLabel(c, italian: italian)).toList();
-    final dashes = '-' * entry.len;
+    final tail = '${entry.sustain ? '→' : ''}${'-' * entry.len}';
+    final isRest = entry.basses.every((c) => c < 0);
     final String text;
     if (labels.length == 1) {
-      text = '${labels.first}$dashes';
+      text = '${labels.first}$tail';
     } else if (entry.run) {
-      text = '{${labels.join(' ')}}$dashes';
+      text = '{${labels.join(' ')}}$tail';
     } else {
-      text = '[${labels.join(' ')}]$dashes';
+      text = '[${labels.join(' ')}]$tail';
     }
     return GestureDetector(
       onTap: onTap,
@@ -267,7 +268,10 @@ class _BassChip extends StatelessWidget {
           ),
         ),
         child: Text(text,
-            style: mono(size: 13, weight: FontWeight.w700)),
+            style: mono(
+                size: 13,
+                weight: FontWeight.w700,
+                color: isRest ? Palette.muted : Palette.ivory)),
       ),
     );
   }

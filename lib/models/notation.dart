@@ -52,7 +52,10 @@ String _noteWithFinger(Entry e, int midi, {required bool italian}) {
 /// Etichetta di un bottone dei bassi (Stradella).
 /// Codice = tipo*12 + nota. Contrabbasso: nome della TERZA reale in
 /// minuscolo (do); basso: nome (Do); accordi: DoM, Dom, Do7, Dod.
+const int kBassRest = -1;
+
 String bassLabel(int code, {required bool italian}) {
+  if (code < 0) return '_'; // pausa
   final pc = code % 12;
   final type = code ~/ 12;
   switch (type) {
@@ -74,7 +77,7 @@ String bassLabel(int code, {required bool italian}) {
 String formatEntry(Entry e, {required bool italian}) {
   if (e.isText) return '«${e.label}»';
   if (e.isBass) {
-    final tail = _dashes(e.len);
+    final tail = '${e.sustain ? '→' : ''}${_dashes(e.len)}';
     final labels =
         e.basses.map((c) => bassLabel(c, italian: italian)).toList();
     if (labels.length == 1) return '${labels.first}$tail';
