@@ -99,19 +99,31 @@ jobs:
         run: flutter create --platforms=android,web --project-name taccuino_fisarmonica --org com.taccuino .
 
       # Alcuni plugin (es. flutter_plugin_android_lifecycle via file_picker)
-      # richiedono compileSdk 36: forziamolo nel gradle app generato.
+      # richiedono compileSdk 36. Forziamolo su TUTTI i sottoprogetti (app +
+      # plugin) aggiungendo un blocco subprojects al build.gradle.kts di root,
+      # più il valore esplicito nell'app.
       - name: Force Android compileSdk 36
         run: |
-          f=android/app/build.gradle.kts
-          g=android/app/build.gradle
-          if [ -f "$f" ]; then
-            sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' "$f"
+          app_kts=android/app/build.gradle.kts
+          if [ -f "$app_kts" ]; then
+            sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' "$app_kts"
           fi
-          if [ -f "$g" ]; then
-            sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 36/' "$g"
-            sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdk 36/' "$g"
+          root_kts=android/build.gradle.kts
+          if [ -f "$root_kts" ]; then
+            cat >> "$root_kts" <<'EOF'
+
+// Forza compileSdk 36 su tutti i moduli (plugin inclusi).
+subprojects {
+    afterEvaluate {
+        extensions.findByName("android")?.let { ext ->
+            (ext as com.android.build.gradle.BaseExtension).compileSdkVersion(36)
+        }
+    }
+}
+EOF
           fi
-          grep -R "compileSdk" android/app/build.gradle* || true
+          echo '--- root build.gradle.kts (tail) ---'
+          tail -n 15 "$root_kts" 2>/dev/null || true
 
       - run: flutter pub get
 
