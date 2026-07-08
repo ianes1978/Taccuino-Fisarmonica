@@ -394,7 +394,8 @@ class AppState extends ChangeNotifier {
   }
 
   /// Suona in sequenza le voci della melodia selezionate (anteprima
-  /// dell'intervallo in modalità bassi).
+  /// dell'intervallo in modalità bassi), evidenziando man mano il chip
+  /// che sta suonando.
   Future<void> _playRangePreview() async {
     if (!audioOn || !hasBassRange || sequence.isEmpty) return;
     if (isPlaying) stopPlayback();
@@ -406,8 +407,14 @@ class AppState extends ChangeNotifier {
       if (token != _playToken) return;
       final entry = sequence[k];
       if (entry.isText || entry.isBass) continue;
+      playingIndex = k;
+      notifyListeners();
       await _playEntrySound(entry);
       await Future.delayed(Duration(milliseconds: _scaledMs(240)));
+    }
+    if (token == _playToken) {
+      playingIndex = null;
+      notifyListeners();
     }
   }
 
