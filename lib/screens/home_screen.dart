@@ -31,6 +31,7 @@ class HomeScreen extends StatelessWidget {
                     italian: state.italian,
                     onTap: state.onKeyTap,
                     highlightedMidis: state.highlightedMidis,
+                    focusMidi: state.keyboardFocusMidi,
                     fingers: state.highlightedFingers,
                   ),
                 ),

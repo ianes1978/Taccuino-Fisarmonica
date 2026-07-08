@@ -14,6 +14,9 @@ class PianoKeyboard extends StatefulWidget {
   /// Note evidenziate (voce selezionata o in riproduzione).
   final Set<int> highlightedMidis;
 
+  /// Nota a fuoco, marcata più forte delle altre evidenziate.
+  final int? focusMidi;
+
   /// Diteggiatura da mostrare sui tasti evidenziati.
   final Map<int, int> fingers;
 
@@ -22,6 +25,7 @@ class PianoKeyboard extends StatefulWidget {
     required this.italian,
     required this.onTap,
     this.highlightedMidis = const {},
+    this.focusMidi,
     this.fingers = const {},
   });
 
@@ -118,6 +122,7 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
     final i = _whiteDisplayIndex(midi);
     final pressed = _flash.contains(midi);
     final highlighted = widget.highlightedMidis.contains(midi);
+    final focused = highlighted && widget.focusMidi == midi;
     final active = pressed || highlighted;
     final finger = highlighted ? widget.fingers[midi] : null;
     return Positioned(
@@ -132,14 +137,25 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: active
-                  ? const [Palette.brass, Color(0xFFD9BD7C), Palette.brassDim]
-                  : const [Palette.whiteTop, Palette.whiteMid, Palette.whiteBot],
+              colors: focused
+                  // Nota a fuoco: tinta oro più chiara e luminosa.
+                  ? const [Color(0xFFF2DFAE), Color(0xFFE3C077), Palette.brass]
+                  : active
+                      ? const [
+                          Palette.brass,
+                          Color(0xFFD9BD7C),
+                          Palette.brassDim
+                        ]
+                      : const [
+                          Palette.whiteTop,
+                          Palette.whiteMid,
+                          Palette.whiteBot
+                        ],
             ),
             border: Border(
               left: BorderSide(
                   color: highlighted ? Palette.ivory : Palette.brass,
-                  width: highlighted ? 5 : 3),
+                  width: focused ? 9 : (highlighted ? 5 : 3)),
               bottom: const BorderSide(color: Palette.line, width: 1),
             ),
           ),
@@ -167,6 +183,7 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
     final boundaryY = (lowerWhiteIndex + 1) * whiteH;
     final pressed = _flash.contains(midi);
     final highlighted = widget.highlightedMidis.contains(midi);
+    final focused = highlighted && widget.focusMidi == midi;
     final active = pressed || highlighted;
     final finger = highlighted ? widget.fingers[midi] : null;
     return Positioned(
@@ -182,19 +199,33 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: active
-                    ? const [Palette.brass, Palette.brassDim, Palette.brassDeep]
-                    : const [Palette.blackTop, Palette.blackMid, Palette.blackBot],
+                colors: focused
+                    // Nota a fuoco: oro più chiaro.
+                    ? const [Color(0xFFE3C077), Palette.brass, Palette.brassDim]
+                    : active
+                        ? const [
+                            Palette.brass,
+                            Palette.brassDim,
+                            Palette.brassDeep
+                          ]
+                        : const [
+                            Palette.blackTop,
+                            Palette.blackMid,
+                            Palette.blackBot
+                          ],
               ),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(4),
                 bottomLeft: Radius.circular(4),
               ),
               border: highlighted
-                  ? const Border(
-                      left: BorderSide(color: Palette.ivory, width: 2),
-                      top: BorderSide(color: Palette.ivory, width: 2),
-                      bottom: BorderSide(color: Palette.ivory, width: 2),
+                  ? Border(
+                      left: BorderSide(
+                          color: Palette.ivory, width: focused ? 4 : 2),
+                      top: BorderSide(
+                          color: Palette.ivory, width: focused ? 4 : 2),
+                      bottom: BorderSide(
+                          color: Palette.ivory, width: focused ? 4 : 2),
                     )
                   : null,
               boxShadow: const [

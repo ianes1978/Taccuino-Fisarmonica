@@ -146,6 +146,16 @@ class AppState extends ChangeNotifier {
   /// Diteggiatura da riportare sui tasti evidenziati.
   Map<int, int> get highlightedFingers => _activeEntry?.fingers ?? const {};
 
+  /// Nota a fuoco da marcare più forte sulla tastiera (solo per voci con
+  /// più note e fuori dalla riproduzione: per la nota singola basta
+  /// l'evidenziazione normale).
+  int? get keyboardFocusMidi {
+    if (isPlaying) return null;
+    final e = targetEntry;
+    if (e == null || e.midis.length <= 1) return null;
+    return effectiveFocusMidi;
+  }
+
   /// Nota effettivamente a fuoco (per la diteggiatura) nella voce bersaglio.
   int? get effectiveFocusMidi {
     final e = targetEntry;
@@ -283,6 +293,7 @@ class AppState extends ChangeNotifier {
     final e = sequence[index];
     // Per una nota singola il fuoco è automatico; per un accordo prendi l'acuta.
     focusMidi = e.midis.isNotEmpty ? e.midis.last : null;
+    _playEntrySound(e); // feedback: il chip toccato suona
     notifyListeners();
   }
 
@@ -290,7 +301,23 @@ class AppState extends ChangeNotifier {
   void focusNoteInEntry(int index, int midi) {
     selected = index;
     focusMidi = midi;
+    _playIfOn(midi); // suona la singola nota toccata
     notifyListeners();
+  }
+
+  /// Suona una voce: accordo insieme, abbellimento in rapida successione.
+  Future<void> _playEntrySound(Entry e) async {
+    if (!audioOn) return;
+    if (e.run) {
+      for (final m in e.midis) {
+        _synth.play(m);
+        await Future.delayed(Duration(milliseconds: ornamentGapMs));
+      }
+    } else {
+      for (final m in e.midis) {
+        _synth.play(m);
+      }
+    }
   }
 
   void clearAll() {
