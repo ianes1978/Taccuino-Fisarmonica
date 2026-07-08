@@ -19,6 +19,12 @@ dependencies:
   file_saver: ^0.2.14
   file_picker: ^8.1.6
 
+# Blocca flutter_plugin_android_lifecycle: dalla 2.0.35 le androidx
+# aggiornate richiedono compileSdk 36 e rompono la build dei plugin
+# (es. file_picker) compilati contro android-34/35.
+dependency_overrides:
+  flutter_plugin_android_lifecycle: 2.0.34
+
 dev_dependencies:
   flutter_lints: ^4.0.0
   flutter_launcher_icons: ^0.14.1
