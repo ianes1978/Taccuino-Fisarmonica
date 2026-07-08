@@ -22,7 +22,7 @@ class AnnotationStrip extends StatelessWidget {
       ..clearSnackBars()
       ..showSnackBar(
         SnackBar(
-          content: Text('Copiato negli appunti', style: mono(size: 13)),
+          content: Text(state.tr.copied, style: mono(size: 13)),
           backgroundColor: Palette.brassDeep,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(milliseconds: 1400),
@@ -45,7 +45,7 @@ class AnnotationStrip extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('Annotazione',
+              Text(state.tr.annotation,
                   style: mono(
                       size: 11,
                       color: Palette.muted,
@@ -55,7 +55,7 @@ class AnnotationStrip extends StatelessWidget {
               if (!empty) ...[
                 _HeaderButton(
                   icon: Icons.visibility_outlined,
-                  tooltip: 'Visualizza a schermo intero',
+                  tooltip: state.tr.fullscreenView,
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -63,6 +63,7 @@ class AnnotationStrip extends StatelessWidget {
                           entries: List.of(state.sequence),
                           title: state.loadedName,
                           italian: state.italian,
+                          tr: state.tr,
                         ),
                       ),
                     );
@@ -72,7 +73,7 @@ class AnnotationStrip extends StatelessWidget {
                   icon: state.isPlaying
                       ? Icons.stop_rounded
                       : Icons.play_arrow_rounded,
-                  tooltip: state.isPlaying ? 'Ferma' : 'Ascolta',
+                  tooltip: state.isPlaying ? state.tr.stop : state.tr.listen,
                   filled: true,
                   onTap: () {
                     HapticFeedback.selectionClick();
@@ -81,12 +82,12 @@ class AnnotationStrip extends StatelessWidget {
                 ),
                 _HeaderButton(
                   icon: Icons.copy_all_outlined,
-                  tooltip: 'Copia',
+                  tooltip: state.tr.copy,
                   onTap: () => _copy(context),
                 ),
                 _HeaderButton(
                   icon: Icons.refresh,
-                  tooltip: 'Svuota',
+                  tooltip: state.tr.clear,
                   onTap: () {
                     HapticFeedback.mediumImpact();
                     state.clearAll();
@@ -102,7 +103,7 @@ class AnnotationStrip extends StatelessWidget {
                 ? Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Tocca un tasto per iniziare.\nLe note appaiono qui.',
+                      state.tr.emptyHint,
                       style: mono(size: 13, color: Palette.muted),
                     ),
                   )
@@ -140,10 +141,11 @@ class AnnotationStrip extends StatelessWidget {
                                 state.selectEntry(i);
                                 final text = await promptText(
                                   context,
-                                  heading: 'Modifica testo',
-                                  hint: 'Testo (vuoto = elimina)',
+                                  heading: state.tr.editText,
+                                  hint: state.tr.textEmptyDeletes,
                                   initial: entry.label ?? '',
-                                  confirm: 'Salva',
+                                  confirm: state.tr.save,
+                                  cancel: state.tr.cancel,
                                 );
                                 if (text != null) {
                                   state.editTextEntry(i, text);

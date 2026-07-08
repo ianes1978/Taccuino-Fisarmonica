@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/strings.dart';
 import '../models/entry.dart';
 import '../models/notation.dart';
 import '../theme.dart';
@@ -10,10 +11,12 @@ class ScoreView extends StatefulWidget {
   final List<Entry> entries;
   final String? title;
   final bool italian;
+  final Str tr;
   const ScoreView({
     super.key,
     required this.entries,
     required this.italian,
+    required this.tr,
     this.title,
   });
 
@@ -49,12 +52,12 @@ class _ScoreViewState extends State<ScoreView> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.close, color: Palette.brass),
-                    tooltip: 'Chiudi',
+                    tooltip: widget.tr.close,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   Expanded(
                     child: Text(
-                      widget.title ?? 'Anteprima',
+                      widget.title ?? widget.tr.preview,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: display(size: 18, weight: FontWeight.w600),
@@ -62,14 +65,14 @@ class _ScoreViewState extends State<ScoreView> {
                   ),
                   _RoundBtn(
                     icon: Icons.remove,
-                    tooltip: 'Riduci',
+                    tooltip: widget.tr.smaller,
                     enabled: _size > _min,
                     onTap: () => _bump(-4),
                   ),
                   const SizedBox(width: 8),
                   _RoundBtn(
                     icon: Icons.add,
-                    tooltip: 'Ingrandisci',
+                    tooltip: widget.tr.larger,
                     enabled: _size < _max,
                     onTap: () => _bump(4),
                   ),
@@ -80,7 +83,7 @@ class _ScoreViewState extends State<ScoreView> {
             Expanded(
               child: widget.entries.isEmpty
                   ? Center(
-                      child: Text('Nessuna nota.',
+                      child: Text(widget.tr.noNotes,
                           style: mono(size: 15, color: Palette.muted)),
                     )
                   : SingleChildScrollView(

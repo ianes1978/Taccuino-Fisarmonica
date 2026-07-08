@@ -9,6 +9,7 @@ Future<String?> promptText(
   required String hint,
   String initial = '',
   String confirm = 'OK',
+  String cancel = 'Annulla',
 }) {
   final controller = TextEditingController(text: initial);
   return showDialog<String>(
@@ -35,7 +36,7 @@ Future<String?> promptText(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: Text('Annulla', style: mono(size: 14, color: Palette.muted)),
+          child: Text(cancel, style: mono(size: 14, color: Palette.muted)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx, controller.text),

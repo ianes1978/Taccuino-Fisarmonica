@@ -27,7 +27,7 @@ class ControlBar extends StatelessWidget {
             children: [
               _SquareBtn(
                 width: 52,
-                tooltip: 'Modalità accordo',
+                tooltip: state.tr.chordMode,
                 enabled: true,
                 active: state.chordMode,
                 onTap: () {
@@ -41,7 +41,7 @@ class ControlBar extends StatelessWidget {
               const SizedBox(width: 6),
               _SquareBtn(
                 width: 52,
-                tooltip: 'Modalità abbellimento',
+                tooltip: state.tr.ornamentMode,
                 enabled: true,
                 active: state.runMode,
                 onTap: () {
@@ -55,15 +55,16 @@ class ControlBar extends StatelessWidget {
               const SizedBox(width: 6),
               _SquareBtn(
                 width: 52,
-                tooltip: 'Aggiungi testo (sottotitolo di sezione)',
+                tooltip: state.tr.addTextTooltip,
                 enabled: true,
                 onTap: () async {
                   HapticFeedback.selectionClick();
                   final text = await promptText(
                     context,
-                    heading: 'Testo di sezione',
-                    hint: 'Es. Ritornello, 2ª volta…',
-                    confirm: 'Aggiungi',
+                    heading: state.tr.sectionTextTitle,
+                    hint: state.tr.sectionTextHint,
+                    confirm: state.tr.add,
+                    cancel: state.tr.cancel,
                   );
                   if (text != null && text.trim().isNotEmpty) {
                     state.addTextEntry(text);
@@ -75,7 +76,7 @@ class ControlBar extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: _ToggleChip(
-                  label: '✎ prova',
+                  label: '✎ ${state.tr.practice}',
                   active: state.practiceMode,
                   onTap: () {
                     HapticFeedback.selectionClick();
@@ -86,7 +87,7 @@ class ControlBar extends StatelessWidget {
               const SizedBox(width: 6),
               _SquareBtn(
                 width: 52,
-                tooltip: 'Cancella voce',
+                tooltip: state.tr.deleteEntry,
                 enabled: hasTarget,
                 onTap: () {
                   HapticFeedback.mediumImpact();
@@ -107,8 +108,8 @@ class ControlBar extends StatelessWidget {
                 enabled: hasTarget,
                 min: 0,
                 max: 8,
-                decTooltip: 'Meno durata',
-                incTooltip: 'Più durata',
+                decTooltip: state.tr.lessDuration,
+                incTooltip: state.tr.moreDuration,
                 onDec: () {
                   HapticFeedback.lightImpact();
                   state.decLen();
@@ -125,7 +126,7 @@ class ControlBar extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 4),
                   child: _SquareBtn(
                     width: 36,
-                    tooltip: 'Dito $f',
+                    tooltip: state.tr.fingerN(f),
                     enabled: hasTarget,
                     active: state.currentFinger == f,
                     onTap: () {
@@ -152,7 +153,7 @@ class ControlBar extends StatelessWidget {
               // Velocità abbellimenti: un chip che cicla 1..5.
               _SquareBtn(
                 width: 52,
-                tooltip: 'Velocità abbellimenti (1..5)',
+                tooltip: state.tr.ornamentSpeed,
                 enabled: true,
                 onTap: () {
                   HapticFeedback.selectionClick();

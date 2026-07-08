@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../audio/synth.dart';
+import '../l10n/strings.dart';
 import '../models/entry.dart';
 import '../models/notation.dart';
 import '../models/saved_song.dart';
@@ -34,6 +35,17 @@ class AppState extends ChangeNotifier {
   bool italian = true;
   bool audioOn = true;
 
+  /// Lingua dell'interfaccia: 'system' | 'it' | 'en' | 'pt'.
+  String uiLang = 'system';
+
+  /// Stringhe UI nella lingua corrente.
+  Str get tr => resolveStrings(uiLang);
+
+  void setUiLang(String v) {
+    uiLang = v;
+    _commit();
+  }
+
   /// Velocità degli abbellimenti (1 = lento .. 5 = veloce).
   int ornamentSpeed = 3;
   static const List<int> _gapMs = [150, 110, 80, 55, 35];
@@ -57,6 +69,7 @@ class AppState extends ChangeNotifier {
     italian = _prefs?.getBool('italian') ?? true;
     audioOn = _prefs?.getBool('audioOn') ?? true;
     ornamentSpeed = (_prefs?.getInt('ornamentSpeed') ?? 3).clamp(1, 5);
+    uiLang = _prefs?.getString('uiLang') ?? 'system';
     final raw = _prefs?.getString('sequence');
     if (raw != null && raw.isNotEmpty) {
       try {
@@ -93,6 +106,7 @@ class AppState extends ChangeNotifier {
     _prefs?.setBool('italian', italian);
     _prefs?.setBool('audioOn', audioOn);
     _prefs?.setInt('ornamentSpeed', ornamentSpeed);
+    _prefs?.setString('uiLang', uiLang);
   }
 
   void incOrnamentSpeed() {

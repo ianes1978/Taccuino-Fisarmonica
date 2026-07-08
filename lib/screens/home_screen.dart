@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/saved_song.dart';
 import '../services/export_service.dart';
 import '../state/app_state.dart';
+import 'settings_screen.dart';
 import '../theme.dart';
 import '../widgets/annotation_strip.dart';
 import '../widgets/control_bar.dart';
@@ -63,7 +64,7 @@ class _Header extends StatelessWidget {
           ),
           _HeaderToggle(
             label: state.italian ? 'Do Re Mi' : 'C D E',
-            tooltip: 'Sistema nomi',
+            tooltip: state.tr.namesTooltip,
             onTap: () {
               HapticFeedback.selectionClick();
               state.toggleNames();
@@ -72,7 +73,7 @@ class _Header extends StatelessWidget {
           const SizedBox(width: 8),
           _HeaderToggle(
             label: state.audioOn ? '♪' : '×',
-            tooltip: state.audioOn ? 'Audio attivo' : 'Muto',
+            tooltip: state.audioOn ? state.tr.audioOn : state.tr.muted,
             active: state.audioOn,
             onTap: () {
               HapticFeedback.selectionClick();
@@ -104,22 +105,28 @@ class _MenuButton extends StatelessWidget {
           _quickSave(context, state);
         } else if (v == 'saveas') {
           _showSaveDialog(context, state);
-        } else if (v == 'load') {
+        } else if (v == 'list') {
           _showLoadSheet(context, state);
         } else if (v == 'pdf') {
           _exportPdf(context, state);
-        } else if (v == 'import') {
-          _importJson(context, state);
+        } else if (v == 'settings') {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => SettingsScreen(state: state)),
+          );
         }
       },
       itemBuilder: (context) => [
-        _menuItem('quicksave', Icons.save,
-            state.loadedName != null ? 'Salva "${state.loadedName}"' : 'Salva'),
-        _menuItem('saveas', Icons.save_as_outlined, 'Salva con nome'),
-        _menuItem('load', Icons.folder_open_outlined, 'Carica…'),
+        _menuItem(
+            'quicksave',
+            Icons.save,
+            state.loadedName != null
+                ? state.tr.menuSaveNamed(state.loadedName!)
+                : state.tr.menuSave),
+        _menuItem('saveas', Icons.save_as_outlined, state.tr.menuSaveAs),
+        _menuItem('list', Icons.library_music_outlined, state.tr.menuList),
         const PopupMenuDivider(),
-        _menuItem('pdf', Icons.picture_as_pdf_outlined, 'Esporta PDF'),
-        _menuItem('import', Icons.file_upload_outlined, 'Importa JSON…'),
+        _menuItem('pdf', Icons.picture_as_pdf_outlined, state.tr.menuExportPdf),
+        _menuItem('settings', Icons.settings_outlined, state.tr.menuSettings),
       ],
     );
   }
@@ -138,15 +145,16 @@ PopupMenuItem<String> _menuItem(String value, IconData icon, String label) {
 
 Future<void> _exportPdf(BuildContext context, AppState state) async {
   if (state.isEmpty) {
-    _toast(context, 'Niente da esportare');
+    _toast(context, state.tr.nothingToExport);
     return;
   }
   final title = await _promptText(
     context,
-    heading: 'Esporta PDF',
-    hint: 'Titolo del PDF',
+    heading: state.tr.pdfDialogTitle,
+    hint: state.tr.pdfTitleHint,
     initial: state.loadedName ?? '',
-    confirm: 'Esporta',
+    confirm: state.tr.export,
+    cancel: state.tr.cancel,
   );
   if (title == null) return; // annullato
   final t = title.trim();
@@ -157,7 +165,7 @@ Future<void> _exportPdf(BuildContext context, AppState state) async {
       title: t.isEmpty ? null : t,
     );
   } catch (_) {
-    if (context.mounted) _toast(context, 'Export PDF non riuscito');
+    if (context.mounted) _toast(context, state.tr.pdfExportFailed);
   }
 }
 
@@ -168,6 +176,7 @@ Future<String?> _promptText(
   required String hint,
   String initial = '',
   String confirm = 'OK',
+  String cancel = 'Annulla',
 }) {
   final controller = TextEditingController(text: initial);
   return showDialog<String>(
@@ -194,7 +203,7 @@ Future<String?> _promptText(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: Text('Annulla', style: mono(size: 14, color: Palette.muted)),
+          child: Text(cancel, style: mono(size: 14, color: Palette.muted)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx, controller.text),
@@ -213,7 +222,7 @@ Future<void> _importJson(BuildContext context, AppState state) async {
     list = null;
   }
   if (list == null || list.isEmpty) {
-    if (context.mounted) _toast(context, 'Nessun file importato');
+    if (context.mounted) _toast(context, state.tr.importNothing);
     return;
   }
   String? lastName;
@@ -224,14 +233,14 @@ Future<void> _importJson(BuildContext context, AppState state) async {
     _toast(
         context,
         list.length == 1
-            ? 'Importato "$lastName"'
-            : 'Importate ${list.length} musiche');
+            ? state.tr.importedOne(lastName ?? '')
+            : state.tr.importedMany(list.length));
   }
 }
 
 void _quickSave(BuildContext context, AppState state) {
   if (state.isEmpty) {
-    _toast(context, 'Niente da salvare');
+    _toast(context, state.tr.nothingToSave);
     return;
   }
   final name = state.loadedName;
@@ -241,7 +250,7 @@ void _quickSave(BuildContext context, AppState state) {
     return;
   }
   state.saveCurrentAs(name);
-  _toast(context, 'Salvato "$name"');
+  _toast(context, state.tr.savedToast(name));
 }
 
 void _toast(BuildContext context, String msg) {
@@ -260,7 +269,7 @@ Future<void> _showSaveDialog(BuildContext context, AppState state) async {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(SnackBar(
-        content: Text('Niente da salvare', style: mono(size: 13)),
+        content: Text(state.tr.nothingToSave, style: mono(size: 13)),
         backgroundColor: Palette.brassDeep,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(milliseconds: 1400),
@@ -272,7 +281,7 @@ Future<void> _showSaveDialog(BuildContext context, AppState state) async {
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: Palette.panel,
-      title: Text('Salva con nome', style: display(size: 18)),
+      title: Text(state.tr.menuSaveAs, style: display(size: 18)),
       content: TextField(
         controller: controller,
         autofocus: true,
@@ -280,7 +289,7 @@ Future<void> _showSaveDialog(BuildContext context, AppState state) async {
         cursorColor: Palette.brass,
         textCapitalization: TextCapitalization.sentences,
         decoration: InputDecoration(
-          hintText: 'Nome della musica',
+          hintText: state.tr.songNameHint,
           hintStyle: mono(size: 14, color: Palette.muted),
           enabledBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Palette.brassDim)),
@@ -292,11 +301,11 @@ Future<void> _showSaveDialog(BuildContext context, AppState state) async {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: Text('Annulla', style: mono(size: 14, color: Palette.muted)),
+          child: Text(state.tr.cancel, style: mono(size: 14, color: Palette.muted)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx, controller.text),
-          child: Text('Salva', style: mono(size: 14, color: Palette.brass)),
+          child: Text(state.tr.save, style: mono(size: 14, color: Palette.brass)),
         ),
       ],
     ),
@@ -309,7 +318,9 @@ Future<void> _showSaveDialog(BuildContext context, AppState state) async {
         ..clearSnackBars()
         ..showSnackBar(SnackBar(
           content: Text(
-              overwrite ? 'Sovrascritto "$name"' : 'Salvato "$name"',
+              overwrite
+                  ? state.tr.overwrittenToast(name)
+                  : state.tr.savedToast(name),
               style: mono(size: 13)),
           backgroundColor: Palette.brassDeep,
           behavior: SnackBarBehavior.floating,
@@ -336,7 +347,7 @@ void _showLoadSheet(BuildContext context, AppState state) {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Musiche salvate',
+                Text(state.tr.savedSongs,
                     style: display(size: 18, weight: FontWeight.w600)),
                 Row(
                   children: [
@@ -344,7 +355,7 @@ void _showLoadSheet(BuildContext context, AppState state) {
                       onPressed: () => _importJson(context, state),
                       icon: const Icon(Icons.file_upload_outlined,
                           size: 18, color: Palette.brass),
-                      label: Text('Importa file',
+                      label: Text(state.tr.importFile,
                           style: mono(size: 12, color: Palette.brass)),
                     ),
                     const Spacer(),
@@ -352,11 +363,11 @@ void _showLoadSheet(BuildContext context, AppState state) {
                       TextButton.icon(
                         onPressed: () {
                           ExportService.exportAllSongs(state.songs);
-                          _toast(context, 'Esportate ${state.songs.length} musiche');
+                          _toast(context, state.tr.exportedAll(state.songs.length));
                         },
                         icon: const Icon(Icons.archive_outlined,
                             size: 18, color: Palette.brass),
-                        label: Text('Esporta tutte',
+                        label: Text(state.tr.exportAll,
                             style: mono(size: 12, color: Palette.brass)),
                       ),
                   ],
@@ -365,7 +376,7 @@ void _showLoadSheet(BuildContext context, AppState state) {
                 if (songs.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Text('Nessuna musica salvata.',
+                    child: Text(state.tr.noSongs,
                         style: mono(size: 14, color: Palette.muted)),
                   )
                 else
@@ -382,7 +393,7 @@ void _showLoadSheet(BuildContext context, AppState state) {
                           title: Text(s.name,
                               style: mono(size: 15, weight: FontWeight.w700)),
                           subtitle: Text(
-                            '${s.noteCount} voci · ${_fmtDate(s.savedAt)}',
+                            '${state.tr.entriesCount(s.noteCount)} · ${_fmtDate(s.savedAt)}',
                             style: mono(size: 11, color: Palette.muted),
                           ),
                           onTap: () {
@@ -394,7 +405,7 @@ void _showLoadSheet(BuildContext context, AppState state) {
                             icon: const Icon(Icons.more_vert,
                                 color: Palette.muted),
                             color: Palette.panel,
-                            tooltip: 'Azioni',
+                            tooltip: state.tr.actions,
                             onSelected: (v) {
                               switch (v) {
                                 case 'preview':
@@ -404,6 +415,7 @@ void _showLoadSheet(BuildContext context, AppState state) {
                                         entries: s.entries,
                                         title: s.name,
                                         italian: state.italian,
+                                        tr: state.tr,
                                       ),
                                     ),
                                   );
@@ -421,13 +433,13 @@ void _showLoadSheet(BuildContext context, AppState state) {
                             },
                             itemBuilder: (_) => [
                               _menuItem('preview', Icons.visibility_outlined,
-                                  'Anteprima'),
+                                  state.tr.preview),
                               _menuItem('json', Icons.download_outlined,
-                                  'Esporta JSON'),
-                              _menuItem(
-                                  'rename', Icons.edit_outlined, 'Rinomina'),
-                              _menuItem(
-                                  'delete', Icons.delete_outline, 'Elimina'),
+                                  state.tr.exportJson),
+                              _menuItem('rename', Icons.edit_outlined,
+                                  state.tr.rename),
+                              _menuItem('delete', Icons.delete_outline,
+                                  state.tr.delete),
                             ],
                           ),
                         );
@@ -450,7 +462,7 @@ Future<void> _showRenameDialog(
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: Palette.panel,
-      title: Text('Rinomina', style: display(size: 18)),
+      title: Text(state.tr.rename, style: display(size: 18)),
       content: TextField(
         controller: controller,
         autofocus: true,
@@ -458,7 +470,7 @@ Future<void> _showRenameDialog(
         cursorColor: Palette.brass,
         textCapitalization: TextCapitalization.sentences,
         decoration: InputDecoration(
-          hintText: 'Nuovo nome',
+          hintText: state.tr.newNameHint,
           hintStyle: mono(size: 14, color: Palette.muted),
           enabledBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Palette.brassDim)),
@@ -470,11 +482,11 @@ Future<void> _showRenameDialog(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: Text('Annulla', style: mono(size: 14, color: Palette.muted)),
+          child: Text(state.tr.cancel, style: mono(size: 14, color: Palette.muted)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx, controller.text),
-          child: Text('Rinomina', style: mono(size: 14, color: Palette.brass)),
+          child: Text(state.tr.rename, style: mono(size: 14, color: Palette.brass)),
         ),
       ],
     ),
@@ -490,17 +502,17 @@ Future<void> _confirmDelete(
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: Palette.panel,
-      title: Text('Eliminare?', style: display(size: 17)),
-      content: Text('Rimuovo "$name" dalle musiche salvate.',
+      title: Text(state.tr.deleteQuestion, style: display(size: 17)),
+      content: Text(state.tr.deleteMessage(name),
           style: mono(size: 14, color: Palette.ivory)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: Text('Annulla', style: mono(size: 14, color: Palette.muted)),
+          child: Text(state.tr.cancel, style: mono(size: 14, color: Palette.muted)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: Text('Elimina', style: mono(size: 14, color: Palette.brass)),
+          child: Text(state.tr.delete, style: mono(size: 14, color: Palette.brass)),
         ),
       ],
     ),
