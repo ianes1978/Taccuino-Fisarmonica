@@ -178,20 +178,21 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Abbellimento: accoda la nota (in ordine) sulla voce-run bersaglio; se la
-  /// bersaglio non è un abbellimento, ne crea uno nuovo subito dopo.
+  /// Abbellimento: come l'accordo, impila sulla voce bersaglio — convertendola
+  /// in abbellimento se non lo è già. Con sequenza vuota crea la prima voce.
   void _runNote(int midi) {
     final i = targetIndex;
-    final t = (i != null) ? sequence[i] : null;
-    if (t != null && t.run) {
-      t.addNote(midi);
+    if (i == null) {
+      sequence.add(Entry.run([midi]));
+      selected = 0;
       focusMidi = midi;
-    } else {
-      final insertAt = i == null ? sequence.length : i + 1;
-      sequence.insert(insertAt, Entry.run([midi]));
-      selected = insertAt;
-      focusMidi = midi;
+      _commit();
+      return;
     }
+    final t = sequence[i];
+    if (!t.run) t.toRun();
+    t.addNote(midi);
+    focusMidi = midi;
     _commit();
   }
 
@@ -216,6 +217,8 @@ class AppState extends ChangeNotifier {
       return;
     }
     final entry = sequence[i];
+    // In modalità accordo un abbellimento bersaglio viene convertito in accordo.
+    if (entry.run) entry.toChord();
     if (entry.midis.contains(midi)) {
       final emptied = entry.removeNote(midi);
       if (emptied) {
@@ -487,13 +490,33 @@ class AppState extends ChangeNotifier {
 
   void toggleChordMode() {
     chordMode = !chordMode;
-    if (chordMode) runMode = false; // esclusivi
+    if (chordMode) {
+      runMode = false; // esclusivi
+      // Se la voce selezionata è un abbellimento, convertila in accordo.
+      final e = targetEntry;
+      if (e != null && e.run) {
+        e.toChord();
+        focusMidi = e.midis.isNotEmpty ? e.midis.last : null;
+        _commit();
+        return;
+      }
+    }
     notifyListeners();
   }
 
   void toggleRunMode() {
     runMode = !runMode;
-    if (runMode) chordMode = false; // esclusivi
+    if (runMode) {
+      chordMode = false; // esclusivi
+      // Se la voce selezionata è un accordo (o nota), convertila in
+      // abbellimento: le note successive si accoderanno lì.
+      final e = targetEntry;
+      if (e != null && !e.run && e.midis.length > 1) {
+        e.toRun();
+        _commit();
+        return;
+      }
+    }
     notifyListeners();
   }
 

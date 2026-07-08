@@ -74,6 +74,21 @@ class Entry {
 
   bool get isChord => midis.length > 1 && !run;
 
+  /// Converte in accordo: note ordinate dal grave all'acuto, senza duplicati.
+  void toChord() {
+    if (!run) return;
+    run = false;
+    final unique = midis.toSet().toList()..sort();
+    midis
+      ..clear()
+      ..addAll(unique);
+  }
+
+  /// Converte in abbellimento (l'ordine attuale diventa l'ordine di esecuzione).
+  void toRun() {
+    run = true;
+  }
+
   Map<String, dynamic> toJson() => {
         'm': midis,
         'l': len,

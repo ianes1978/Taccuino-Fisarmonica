@@ -20,30 +20,36 @@ class ControlBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Riga unica: i tre toggle si stringono per far posto a ⌫,
-          // così non vanno mai a capo nemmeno sugli schermi stretti.
+          // Riga unica: accordo (tre note) e abbellimento (fiorellino) come
+          // icone, prova come chip, ⌫ a destra. Non va mai a capo.
           Row(
             children: [
-              Expanded(
-                child: _ToggleChip(
-                  label: '≡ accordo',
-                  active: state.chordMode,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    state.toggleChordMode();
-                  },
-                ),
+              _SquareBtn(
+                width: 52,
+                tooltip: 'Modalità accordo',
+                enabled: true,
+                active: state.chordMode,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  state.toggleChordMode();
+                },
+                child: Icon(Icons.queue_music,
+                    size: 22,
+                    color: state.chordMode ? Palette.bg : Palette.brass),
               ),
               const SizedBox(width: 6),
-              Expanded(
-                child: _ToggleChip(
-                  label: '↝ abbell.',
-                  active: state.runMode,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    state.toggleRunMode();
-                  },
-                ),
+              _SquareBtn(
+                width: 52,
+                tooltip: 'Modalità abbellimento',
+                enabled: true,
+                active: state.runMode,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  state.toggleRunMode();
+                },
+                child: Icon(Icons.local_florist,
+                    size: 20,
+                    color: state.runMode ? Palette.bg : Palette.brass),
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -58,7 +64,7 @@ class ControlBar extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               _SquareBtn(
-                width: 46,
+                width: 52,
                 tooltip: 'Cancella voce',
                 enabled: hasTarget,
                 onTap: () {
