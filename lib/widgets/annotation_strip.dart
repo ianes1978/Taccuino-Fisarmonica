@@ -47,6 +47,24 @@ class _AnnotationStripState extends State<AnnotationStrip> {
     _syncing = false;
   }
 
+  /// Controllo di solidità: le due righe potrebbero disallinearsi quando la
+  /// riga dei bassi viene (ri)creata o cambia larghezza mentre quella sopra
+  /// è già scrollata — il listener scatta solo sugli eventi di scroll.
+  /// Dopo ogni build riporto la riga dei bassi sull'offset della melodia.
+  void _realignAfterBuild() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _syncing) return;
+      if (!_melCtrl.hasClients || !_bassCtrl.hasClients) return;
+      final want =
+          _melCtrl.offset.clamp(0.0, _bassCtrl.position.maxScrollExtent);
+      if ((_bassCtrl.offset - want).abs() > 0.5) {
+        _syncing = true;
+        _bassCtrl.jumpTo(want);
+        _syncing = false;
+      }
+    });
+  }
+
   @override
   void dispose() {
     _melCtrl.dispose();
@@ -168,6 +186,7 @@ class _AnnotationStripState extends State<AnnotationStrip> {
     final totalW = acc;
     _xs = xs;
     _ws = widths;
+    _realignAfterBuild();
 
     return Container(
       decoration: const BoxDecoration(

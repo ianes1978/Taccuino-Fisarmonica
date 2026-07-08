@@ -35,7 +35,6 @@ class ExportService {
     final heading = title ?? 'Taccuino Fisarmonica';
     final mono = pw.Font.courier();
     final monoBold = pw.Font.courierBold();
-    const bassRed = PdfColor.fromInt(0xFFB03A2E);
 
     pw.Widget token(String t) => pw.Container(
           padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -50,7 +49,9 @@ class ExportService {
         a.basses.map((c) => bassLabel(c, italian: italian)).join(' ');
 
     // Layout a "sistemi": righe di voci; sotto le voci coperte da un appunto
-    // di bassi, il giro in ROSSO allineato (con » quando continua a capo).
+    // di bassi, il giro in GRASSETTO allineato. La linea di copertura alterna
+    // continua e tratteggiata fra appunti adiacenti: leggibile anche in
+    // bianco e nero, pure quando il giro prosegue nella riga successiva.
     // Courier è monospaziato: larghezza carattere = 0.6 * corpo.
     const tokenFs = 12.0;
     const bassFs = 11.0;
@@ -75,7 +76,6 @@ class ExportService {
         x += t.$3 + gap;
       }
       final lineWidth = x - gap;
-      final lastIdx = line.last.$1;
       final segs = <pw.Widget>[];
       for (final a in anns) {
         int? first;
@@ -90,34 +90,45 @@ class ExportService {
         shown.add(a);
         final left = xs[first];
         final w = xs[last] + line[last].$3 - left;
-        final contNext = a.anchorEnd - 1 > lastIdx;
-        String label;
-        if (labelDone.contains(a)) {
-          label = contNext ? '»  »' : '»';
-        } else {
-          label = giro(a);
-          if (contNext) label = '$label »';
-          labelDone.add(a);
-        }
+        // Linea continua o tratteggiata, alternate fra appunti adiacenti.
+        final dashedLine = anns.indexOf(a).isOdd;
+        // Etichetta solo sul primo segmento; le continuazioni hanno la linea.
+        final label = labelDone.contains(a) ? '' : giro(a);
+        labelDone.add(a);
         segs.add(pw.Positioned(
           left: left,
           top: 0,
-          child: pw.Container(width: w, height: 1.5, color: bassRed),
+          child: dashedLine
+              ? pw.Container(
+                  width: w,
+                  height: 1.5,
+                  decoration: const pw.BoxDecoration(
+                    border: pw.Border(
+                      bottom: pw.BorderSide(
+                        color: PdfColors.black,
+                        width: 1.5,
+                        style: pw.BorderStyle.dashed,
+                      ),
+                    ),
+                  ),
+                )
+              : pw.Container(width: w, height: 1.5, color: PdfColors.black),
         ));
-        // Centrato sull'intervallo (allargato se l'etichetta è più lunga).
-        final labelW = label.length * bassFs * 0.6 + 2;
-        final effW = labelW > w ? labelW : w;
-        segs.add(pw.Positioned(
-          left: left - (effW - w) / 2,
-          top: 3,
-          child: pw.Container(
-            width: effW,
-            alignment: pw.Alignment.center,
-            child: pw.Text(label,
-                style: pw.TextStyle(
-                    font: monoBold, fontSize: bassFs, color: bassRed)),
-          ),
-        ));
+        if (label.isNotEmpty) {
+          // Centrato sull'intervallo (allargato se l'etichetta è più lunga).
+          final labelW = label.length * bassFs * 0.6 + 2;
+          final effW = labelW > w ? labelW : w;
+          segs.add(pw.Positioned(
+            left: left - (effW - w) / 2,
+            top: 3,
+            child: pw.Container(
+              width: effW,
+              alignment: pw.Alignment.center,
+              child: pw.Text(label,
+                  style: pw.TextStyle(font: monoBold, fontSize: bassFs)),
+            ),
+          ));
+        }
       }
       final melody = pw.Row(
         mainAxisSize: pw.MainAxisSize.min,
@@ -189,8 +200,7 @@ class ExportService {
       body.add(pw.Padding(
         padding: const pw.EdgeInsets.only(top: 6),
         child: pw.Text(leftover.map(giro).join('   '),
-            style: pw.TextStyle(
-                font: monoBold, fontSize: bassFs, color: bassRed)),
+            style: pw.TextStyle(font: monoBold, fontSize: bassFs)),
       ));
     }
 

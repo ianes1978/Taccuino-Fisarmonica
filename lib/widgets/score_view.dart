@@ -9,9 +9,10 @@ import '../theme.dart';
 /// senza tastiera. + / − per ridimensionare il testo.
 ///
 /// Se ci sono appunti di bassi, ogni riga diventa un "sistema" a due righe:
-/// sopra le voci della tastiera, sotto (in rosso) i giri di bassi allineati
-/// alle voci coperte. Quando un giro prosegue nella riga dopo, lo indica
-/// una freccia (→).
+/// sopra le voci della tastiera, sotto — in GRASSETTO — i giri di bassi
+/// allineati alle voci coperte. La linea di copertura alterna continua e
+/// tratteggiata fra appunti adiacenti, così anche in bianco e nero si vede
+/// quale zona copre ciascun giro (anche quando prosegue nella riga dopo).
 class ScoreView extends StatefulWidget {
   final List<Entry> entries;
   final List<Entry> bassEntries;
@@ -185,7 +186,7 @@ extension on _ScoreViewState {
       }
       final text = formatEntry(e, italian: widget.italian);
       final w =
-          _textW(text, mono(size: _size, weight: FontWeight.w700)) + tokPad;
+          _textW(text, mono(size: _size, weight: FontWeight.w400)) + tokPad;
       if (line.isNotEmpty && lineW + gap + w > avail) flushLine();
       lineW = line.isEmpty ? w : lineW + gap + w;
       line.add(_Tok(i, text, w));
@@ -199,10 +200,7 @@ extension on _ScoreViewState {
         padding: EdgeInsets.only(top: _size * 0.4),
         child: Text(
           leftover.map(_giro).join('   '),
-          style: mono(
-              size: _size * 0.85,
-              weight: FontWeight.w700,
-              color: Palette.bassRed),
+          style: mono(size: _size * 0.85, weight: FontWeight.w700),
         ),
       ));
     }
@@ -220,7 +218,6 @@ extension on _ScoreViewState {
       x += t.w + gap;
     }
     final lineWidth = x - gap;
-    final lastIdx = line.last.idx;
 
     final segs = <Widget>[];
     for (final a in anns) {
@@ -236,46 +233,46 @@ extension on _ScoreViewState {
       shown.add(a);
       final left = xs[first];
       final w = xs[last] + line[last].w - left;
-      final contNext = a.anchorEnd - 1 > lastIdx;
-      String label;
-      if (labelDone.contains(a)) {
-        label = contNext ? '→   →' : '→';
-      } else {
-        label = _giro(a);
-        if (contNext) label = '$label →';
-        labelDone.add(a);
-      }
+      // Linea di copertura: continua o tratteggiata, alternate fra appunti
+      // adiacenti (leggibile anche in bianco e nero, pure quando il giro
+      // prosegue nella riga successiva).
+      final dashedLine = anns.indexOf(a).isOdd;
+      // Etichetta del giro solo sul primo segmento; i segmenti di
+      // continuazione mostrano soltanto la linea.
+      final label = labelDone.contains(a) ? '' : _giro(a);
+      labelDone.add(a);
       segs.add(Positioned(
         left: left,
         top: 0,
         width: w,
         height: 2.5,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Palette.bassRed.withValues(alpha: 0.75),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
+        child: dashedLine
+            ? CustomPaint(painter: _HDashPainter())
+            : Container(
+                decoration: BoxDecoration(
+                  color: Palette.ivory.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
       ));
-      segs.add(Positioned(
-        left: left,
-        top: 4,
-        width: w,
-        height: _size * 1.15,
-        child: Center(
-          child: OverflowBox(
-            maxWidth: double.infinity,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: mono(
-                  size: _size * 0.8,
-                  weight: FontWeight.w700,
-                  color: Palette.bassRed),
+      if (label.isNotEmpty) {
+        segs.add(Positioned(
+          left: left,
+          top: 4,
+          width: w,
+          height: _size * 1.15,
+          child: Center(
+            child: OverflowBox(
+              maxWidth: double.infinity,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: mono(size: _size * 0.8, weight: FontWeight.w700),
+              ),
             ),
           ),
-        ),
-      ));
+        ));
+      }
     }
 
     final melody = Row(
@@ -317,6 +314,8 @@ extension on _ScoreViewState {
   }
 }
 
+/// Le voci della tastiera sono in peso normale: il GRASSETTO è riservato
+/// ai giri di bassi, così si distinguono anche stampati in bianco e nero.
 class _Token extends StatelessWidget {
   final String text;
   final double size;
@@ -335,10 +334,32 @@ class _Token extends StatelessWidget {
       child: Text(
         text,
         maxLines: 1,
-        style: mono(size: size, weight: FontWeight.w700),
+        style: mono(size: size, weight: FontWeight.w400),
       ),
     );
   }
+}
+
+/// Linea orizzontale tratteggiata (copertura degli appunti alternati).
+class _HDashPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Palette.ivory.withValues(alpha: 0.85)
+      ..strokeWidth = size.height
+      ..strokeCap = StrokeCap.round;
+    const dash = 7.0, gap = 5.0;
+    final y = size.height / 2;
+    var x = 0.0;
+    while (x < size.width) {
+      final end = (x + dash) > size.width ? size.width : (x + dash);
+      canvas.drawLine(Offset(x, y), Offset(end, y), paint);
+      x += dash + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HDashPainter oldDelegate) => false;
 }
 
 class _RoundBtn extends StatelessWidget {
