@@ -98,6 +98,21 @@ jobs:
       - name: Generate platform scaffolding
         run: flutter create --platforms=android,web --project-name taccuino_fisarmonica --org com.taccuino .
 
+      # Alcuni plugin (es. flutter_plugin_android_lifecycle via file_picker)
+      # richiedono compileSdk 36: forziamolo nel gradle app generato.
+      - name: Force Android compileSdk 36
+        run: |
+          f=android/app/build.gradle.kts
+          g=android/app/build.gradle
+          if [ -f "$f" ]; then
+            sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' "$f"
+          fi
+          if [ -f "$g" ]; then
+            sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 36/' "$g"
+            sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdk 36/' "$g"
+          fi
+          grep -R "compileSdk" android/app/build.gradle* || true
+
       - run: flutter pub get
 
       - name: Generate app icons
