@@ -215,18 +215,27 @@ Future<String?> _promptText(
 }
 
 Future<void> _importJson(BuildContext context, AppState state) async {
-  SavedSong? song;
+  List<SavedSong>? list;
   try {
-    song = await ExportService.importSongJson();
+    list = await ExportService.importSongs();
   } catch (_) {
-    song = null;
+    list = null;
   }
-  if (song == null) {
+  if (list == null || list.isEmpty) {
     if (context.mounted) _toast(context, 'Nessun file importato');
     return;
   }
-  final name = state.addImportedSong(song);
-  if (context.mounted) _toast(context, 'Importato "$name"');
+  String? lastName;
+  for (final s in list) {
+    lastName = state.addImportedSong(s);
+  }
+  if (context.mounted) {
+    _toast(
+        context,
+        list.length == 1
+            ? 'Importato "$lastName"'
+            : 'Importate ${list.length} musiche');
+  }
 }
 
 void _quickSave(BuildContext context, AppState state) {
@@ -338,7 +347,30 @@ void _showLoadSheet(BuildContext context, AppState state) {
               children: [
                 Text('Musiche salvate',
                     style: display(size: 18, weight: FontWeight.w600)),
-                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _importJson(context, state),
+                      icon: const Icon(Icons.file_upload_outlined,
+                          size: 18, color: Palette.brass),
+                      label: Text('Importa file',
+                          style: mono(size: 12, color: Palette.brass)),
+                    ),
+                    const Spacer(),
+                    if (songs.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: () {
+                          ExportService.exportAllSongs(state.songs);
+                          _toast(context, 'Esportate ${state.songs.length} musiche');
+                        },
+                        icon: const Icon(Icons.archive_outlined,
+                            size: 18, color: Palette.brass),
+                        label: Text('Esporta tutte',
+                            style: mono(size: 12, color: Palette.brass)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 if (songs.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24),

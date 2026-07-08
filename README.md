@@ -29,6 +29,8 @@ salva il lavoro tra un avvio e l'altro.
   tastiera, con **+/−** per ridimensionare il testo.
 - **Esporta PDF** (menu ☰) della sequenza corrente; **Esporta JSON** per ogni
   musica salvata (`[titolo].json`, portabile) e **Importa JSON…** dal menu.
+- Dalla lista: **Esporta tutte** / **Importa file** (backup dell'intera
+  libreria in/da un unico file). **Velocità abbellimento** regolabile (1–5).
 - Font: Fraunces (titoli) + Space Mono (note), palette legno/ottone/avorio.
 - Icona app (Android + Web) generata da `assets/icon/app_icon.png`.
 

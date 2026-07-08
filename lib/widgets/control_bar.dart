@@ -66,12 +66,22 @@ class ControlBar extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          // Riga durata
-          Row(
+          // Riga durata + velocità abbellimento
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _GroupLabel('Durata'),
-              const SizedBox(width: 8),
-              _DurationGroup(state: state, enabled: hasTarget),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                _GroupLabel('Durata'),
+                const SizedBox(width: 8),
+                _DurationGroup(state: state, enabled: hasTarget),
+              ]),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                _GroupLabel('Vel ↝'),
+                const SizedBox(width: 8),
+                _SpeedGroup(state: state),
+              ]),
             ],
           ),
           const SizedBox(height: 8),
@@ -188,6 +198,53 @@ class _DurationGroup extends StatelessWidget {
             onTap: () {
               HapticFeedback.lightImpact();
               state.incLen();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SpeedGroup extends StatelessWidget {
+  final AppState state;
+  const _SpeedGroup({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = state.ornamentSpeed;
+    return Container(
+      decoration: BoxDecoration(
+        color: Palette.panel,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Palette.brassDim, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _IconAction(
+            icon: Icons.remove,
+            tooltip: 'Più lento',
+            enabled: v > 1,
+            flat: true,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              state.decOrnamentSpeed();
+            },
+          ),
+          Container(
+            width: 34,
+            alignment: Alignment.center,
+            child: Text('$v', style: mono(size: 15, weight: FontWeight.w700)),
+          ),
+          _IconAction(
+            icon: Icons.add,
+            tooltip: 'Più veloce',
+            enabled: v < 5,
+            flat: true,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              state.incOrnamentSpeed();
             },
           ),
         ],

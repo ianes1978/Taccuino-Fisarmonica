@@ -34,6 +34,11 @@ class AppState extends ChangeNotifier {
   bool italian = true;
   bool audioOn = true;
 
+  /// Velocità degli abbellimenti (1 = lento .. 5 = veloce).
+  int ornamentSpeed = 3;
+  static const List<int> _gapMs = [150, 110, 80, 55, 35];
+  int get ornamentGapMs => _gapMs[(ornamentSpeed - 1).clamp(0, 4)];
+
   /// Modalità "prova": i tasti suonano soltanto, senza scrivere.
   bool practiceMode = false;
 
@@ -51,6 +56,7 @@ class AppState extends ChangeNotifier {
     _prefs = await SharedPreferences.getInstance();
     italian = _prefs?.getBool('italian') ?? true;
     audioOn = _prefs?.getBool('audioOn') ?? true;
+    ornamentSpeed = (_prefs?.getInt('ornamentSpeed') ?? 3).clamp(1, 5);
     final raw = _prefs?.getString('sequence');
     if (raw != null && raw.isNotEmpty) {
       try {
@@ -86,6 +92,21 @@ class AppState extends ChangeNotifier {
     _prefs?.setString('sequence', raw);
     _prefs?.setBool('italian', italian);
     _prefs?.setBool('audioOn', audioOn);
+    _prefs?.setInt('ornamentSpeed', ornamentSpeed);
+  }
+
+  void incOrnamentSpeed() {
+    if (ornamentSpeed < 5) {
+      ornamentSpeed++;
+      _commit();
+    }
+  }
+
+  void decOrnamentSpeed() {
+    if (ornamentSpeed > 1) {
+      ornamentSpeed--;
+      _commit();
+    }
   }
 
   // --- Voce bersaglio ------------------------------------------------------
@@ -397,7 +418,7 @@ class AppState extends ChangeNotifier {
         for (final m in e.midis) {
           if (token != _playToken) break;
           _synth.play(m);
-          await Future.delayed(const Duration(milliseconds: 75));
+          await Future.delayed(Duration(milliseconds: ornamentGapMs));
         }
         await Future.delayed(Duration(milliseconds: 120 + e.len * 170));
       } else {

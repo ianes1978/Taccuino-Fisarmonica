@@ -88,9 +88,27 @@ class ExportService {
     );
   }
 
-  /// Importa una musica da un file JSON scelto dall'utente.
-  /// Ritorna null se annullato o non valido.
-  static Future<SavedSong?> importSongJson() async {
+  /// Esporta TUTTE le musiche in un unico file `taccuino-fisarmonica.json`.
+  static Future<void> exportAllSongs(List<SavedSong> songs) async {
+    final envelope = {
+      'app': appTag,
+      'version': formatVersion,
+      'songs': songs.map((s) => s.toJson()).toList(),
+    };
+    final str = const JsonEncoder.withIndent('  ').convert(envelope);
+    final bytes = Uint8List.fromList(utf8.encode(str));
+    await FileSaver.instance.saveFile(
+      name: 'taccuino-fisarmonica',
+      bytes: bytes,
+      ext: 'json',
+      mimeType: MimeType.other,
+    );
+  }
+
+  /// Importa da un file JSON scelto dall'utente. Accetta sia un singolo brano
+  /// (`song`/`entries`) sia una libreria (`songs`). Ritorna null se annullato
+  /// o non valido, altrimenti la lista (1+ musiche).
+  static Future<List<SavedSong>?> importSongs() async {
     final res = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
@@ -103,11 +121,17 @@ class ExportService {
       final decoded = jsonDecode(utf8.decode(data));
       if (decoded is! Map) return null;
       final map = decoded.cast<String, dynamic>();
+      if (map['songs'] is List) {
+        return (map['songs'] as List)
+            .whereType<Map>()
+            .map((e) => SavedSong.fromJson(e.cast<String, dynamic>()))
+            .toList();
+      }
       final songJson = (map['song'] is Map)
           ? (map['song'] as Map).cast<String, dynamic>()
           : map;
       if (songJson['entries'] is! List) return null;
-      return SavedSong.fromJson(songJson);
+      return [SavedSong.fromJson(songJson)];
     } catch (_) {
       return null;
     }
