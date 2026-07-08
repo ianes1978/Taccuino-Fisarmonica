@@ -6,6 +6,8 @@ import '../theme.dart';
 
 /// Bottoniera bassi Stradella (72 bassi, stile FR-1X): 12 righe ordinate
 /// per quinte × 6 colonne (contrabbasso, basso, Magg, min, 7ª, dim).
+/// Le colonne sono sfalsate in diagonale come sullo strumento e i bassi
+/// di riferimento (La♭, Do, Mi) portano la "fossetta".
 /// Codice bottone = tipo*12 + nota (vedi Entry.basses).
 class BassBoard extends StatefulWidget {
   final bool italian;
@@ -19,9 +21,18 @@ class BassBoard extends StatefulWidget {
 
 class _BassBoardState extends State<BassBoard> {
   static const double rowH = 52;
+  static const double btn = 46;
 
-  /// Righe per quinte (dall'alto): Reb, Lab, Mib, Sib, Fa, DO, Sol, Re, La...
-  static const List<int> _fifths = [1, 8, 3, 10, 5, 0, 7, 2, 9, 4, 11, 6];
+  /// Sfalsamento verticale fra colonne adiacenti: crea le diagonali
+  /// dei bassi come sulla bottoniera reale.
+  static const double diag = 22;
+
+  /// Righe per quinte (dall'alto): Fa#, Si, Mi, La, Re, Sol, DO, Fa,
+  /// Sib, Mib, Lab, Reb — i diesis verso l'alto, i bemolli verso il basso.
+  static const List<int> _fifths = [6, 11, 4, 9, 2, 7, 0, 5, 10, 3, 8, 1];
+
+  /// Indice della riga del Do.
+  static const int _doRow = 6;
 
   final ScrollController _scroll = ScrollController();
   bool _didCenter = false;
@@ -32,20 +43,30 @@ class _BassBoardState extends State<BassBoard> {
     super.dispose();
   }
 
+  /// Posizione verticale del bottone: la colonna più a destra (dim) è più
+  /// in alto, quella del contrabbasso più in basso — diagonali che salgono
+  /// verso destra, come sullo strumento.
+  double _topOf(int rowIdx, int type) =>
+      rowIdx * rowH + (rowH - btn) / 2 + (5 - type) * diag;
+
   @override
   Widget build(BuildContext context) {
+    final totalH = 12 * rowH + 5 * diag;
     return LayoutBuilder(
       builder: (context, constraints) {
         if (!_didCenter) {
           _didCenter = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!_scroll.hasClients) return;
-            // Centra sulla riga del Do (indice 5).
-            final target = 5 * rowH + rowH / 2 - constraints.maxHeight / 2;
+            // Centra sulla riga del Do.
+            final target = _topOf(_doRow, 1) +
+                btn / 2 -
+                (constraints.maxHeight - 26) / 2;
             _scroll
                 .jumpTo(target.clamp(0.0, _scroll.position.maxScrollExtent));
           });
         }
+        final colW = constraints.maxWidth / 6;
         return DecoratedBox(
           decoration: const BoxDecoration(
             color: Palette.bg,
@@ -57,10 +78,20 @@ class _BassBoardState extends State<BassBoard> {
               Expanded(
                 child: SingleChildScrollView(
                   controller: _scroll,
-                  child: Column(
-                    children: [
-                      for (final pc in _fifths) _row(pc),
-                    ],
+                  child: SizedBox(
+                    height: totalH,
+                    width: constraints.maxWidth,
+                    child: Stack(
+                      children: [
+                        for (var r = 0; r < _fifths.length; r++)
+                          for (var type = 0; type < 6; type++)
+                            Positioned(
+                              left: type * colW + (colW - btn) / 2,
+                              top: _topOf(r, type),
+                              child: _button(_fifths[r], type),
+                            ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -97,24 +128,14 @@ class _BassBoardState extends State<BassBoard> {
     );
   }
 
-  Widget _row(int pc) {
-    return SizedBox(
-      height: rowH,
-      child: Row(
-        children: [
-          for (var type = 0; type < 6; type++)
-            Expanded(child: Center(child: _button(pc, type))),
-        ],
-      ),
-    );
-  }
-
   Widget _button(int pc, int type) {
     final code = type * 12 + pc;
     final label = bassLabel(code, italian: widget.italian);
     final isBassCol = type == 1;
-    // "Fossetta" di riferimento sul Do (come sullo strumento).
+    // "Fossette" di riferimento come sullo strumento: Do (principale),
+    // Mi e Lab (secondarie) sulla colonna dei bassi.
     final isDoBass = isBassCol && pc == 0;
+    final isRefBass = isBassCol && (pc == 4 || pc == 8);
     return Semantics(
       button: true,
       label: label,
@@ -125,8 +146,8 @@ class _BassBoardState extends State<BassBoard> {
           widget.onTap(code);
         },
         child: Container(
-          width: 46,
-          height: 46,
+          width: btn,
+          height: btn,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
@@ -144,27 +165,47 @@ class _BassBoardState extends State<BassBoard> {
             border: Border.all(
               color: isDoBass
                   ? Palette.brass
-                  : (isBassCol ? Palette.brassDim : Palette.line),
-              width: isDoBass ? 2.5 : 1.5,
+                  : (isRefBass
+                      ? Palette.brassDim
+                      : (isBassCol ? Palette.brassDim : Palette.line)),
+              width: (isDoBass || isRefBass) ? 2.5 : 1.5,
             ),
             boxShadow: const [
               BoxShadow(
                   color: Colors.black54, blurRadius: 3, offset: Offset(1, 2)),
             ],
           ),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: Text(
-                label,
-                style: mono(
-                  size: isBassCol ? 13 : 11,
-                  weight: isBassCol ? FontWeight.w800 : FontWeight.w700,
-                  color: isBassCol ? Palette.brass : Palette.ivory,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: Text(
+                    label,
+                    style: mono(
+                      size: isBassCol ? 13 : 11,
+                      weight: isBassCol ? FontWeight.w800 : FontWeight.w700,
+                      color: isBassCol ? Palette.brass : Palette.ivory,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              // Fossetta: puntino sotto l'etichetta.
+              if (isDoBass || isRefBass)
+                Positioned(
+                  bottom: 5,
+                  child: Container(
+                    width: 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isDoBass ? Palette.brass : Palette.brassDim,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
