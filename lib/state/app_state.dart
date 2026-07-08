@@ -371,7 +371,10 @@ class AppState extends ChangeNotifier {
     final covered = bassSeq
         .indexWhere((b) => i >= b.anchorStart && i < b.anchorEnd);
     if (covered >= 0) {
-      selectBassEntry(covered);
+      // Seleziona l'appunto ma suona la sequenza coperta (il giro si
+      // ascolta toccando il chip rosso nella riga sotto).
+      selectBassEntry(covered, playSound: false);
+      _playRangePreview();
       return;
     }
     selectedBass = null; // nuova selezione = nuovo appunto
@@ -386,8 +389,26 @@ class AppState extends ChangeNotifier {
       bassSelStart = i;
       bassSelEnd = i;
     }
-    _playEntrySound(sequence[i]);
+    _playRangePreview();
     notifyListeners();
+  }
+
+  /// Suona in sequenza le voci della melodia selezionate (anteprima
+  /// dell'intervallo in modalità bassi).
+  Future<void> _playRangePreview() async {
+    if (!audioOn || !hasBassRange || sequence.isEmpty) return;
+    if (isPlaying) stopPlayback();
+    _playToken++; // interrompe un'eventuale anteprima precedente
+    final token = _playToken;
+    final s = bassSelStart!.clamp(0, sequence.length - 1);
+    final e = bassSelEnd!.clamp(s, sequence.length - 1);
+    for (var k = s; k <= e; k++) {
+      if (token != _playToken) return;
+      final entry = sequence[k];
+      if (entry.isText || entry.isBass) continue;
+      await _playEntrySound(entry);
+      await Future.delayed(Duration(milliseconds: _scaledMs(240)));
+    }
   }
 
   /// Ridimensiona l'intervallo trascinando un bordo fino all'indice dato.
@@ -467,7 +488,7 @@ class AppState extends ChangeNotifier {
     _commit();
   }
 
-  void selectBassEntry(int index) {
+  void selectBassEntry(int index, {bool playSound = true}) {
     if (index < 0 || index >= bassSeq.length) return;
     selectedBass = index;
     bassFocusIdx = null;
@@ -477,7 +498,7 @@ class AppState extends ChangeNotifier {
       bassSelStart = e.anchorStart.clamp(0, sequence.length - 1);
       bassSelEnd = (e.anchorEnd - 1).clamp(0, sequence.length - 1);
     }
-    _playEntrySound(e);
+    if (playSound) _playEntrySound(e);
     notifyListeners();
   }
 
