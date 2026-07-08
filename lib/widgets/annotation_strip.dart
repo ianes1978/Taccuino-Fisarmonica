@@ -175,7 +175,7 @@ class _HeaderButton extends StatelessWidget {
   }
 }
 
-class _EntryChip extends StatelessWidget {
+class _EntryChip extends StatefulWidget {
   final Entry entry;
   final bool italian;
   final bool isTarget;
@@ -197,6 +197,39 @@ class _EntryChip extends StatelessWidget {
     required this.onTapChip,
     required this.onTapNote,
   });
+
+  @override
+  State<_EntryChip> createState() => _EntryChipState();
+}
+
+class _EntryChipState extends State<_EntryChip> {
+  // Controller della colonna dell'accordo: permette di far scorrere le note
+  // trascinando OVUNQUE sul chip, non solo sopra la colonna.
+  final ScrollController _chordScroll = ScrollController();
+
+  Entry get entry => widget.entry;
+  bool get italian => widget.italian;
+  bool get isTarget => widget.isTarget;
+  bool get isPlaying => widget.isPlaying;
+  bool get chordMode => widget.chordMode;
+  bool get runMode => widget.runMode;
+  int? get focusMidi => widget.focusMidi;
+  VoidCallback get onTapChip => widget.onTapChip;
+  ValueChanged<int> get onTapNote => widget.onTapNote;
+
+  @override
+  void dispose() {
+    _chordScroll.dispose();
+    super.dispose();
+  }
+
+  void _dragChord(DragUpdateDetails d) {
+    if (!_chordScroll.hasClients) return;
+    final max = _chordScroll.position.maxScrollExtent;
+    _chordScroll.jumpTo(
+      (_chordScroll.offset - d.delta.dy).clamp(0.0, max),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -306,7 +339,10 @@ class _EntryChip extends StatelessWidget {
                   dragDevices: PointerDeviceKind.values.toSet(),
                   scrollbars: false,
                 ),
-                child: SingleChildScrollView(child: noteColumn),
+                child: SingleChildScrollView(
+                  controller: _chordScroll,
+                  child: noteColumn,
+                ),
               ),
             )
           else
@@ -350,8 +386,12 @@ class _EntryChip extends StatelessWidget {
       child: content,
     );
 
+    // Accordo con molte note: il drag verticale su TUTTO il chip fa scorrere
+    // la colonna (più comodo col dito che centrare la colonna stessa).
+    final scrollableChord = !entry.run && entry.midis.length > 3;
     return GestureDetector(
       onTap: onTapChip,
+      onVerticalDragUpdate: scrollableChord ? _dragChord : null,
       child: dashed
           ? CustomPaint(foregroundPainter: _DashedBorderPainter(), child: child)
           : child,
