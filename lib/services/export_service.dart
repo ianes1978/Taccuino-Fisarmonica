@@ -109,7 +109,8 @@ class ExportService {
   /// (`song`/`entries`) sia una libreria (`songs`). Ritorna null se annullato
   /// o non valido, altrimenti la lista (1+ musiche).
   static Future<List<SavedSong>?> importSongs() async {
-    final res = await FilePicker.platform.pickFiles(
+    // file_picker >= 11: API statica (FilePicker.platform è stato rimosso).
+    final res = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
       withData: true,
