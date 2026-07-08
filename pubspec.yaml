@@ -17,13 +17,9 @@ dependencies:
   pdf: ^3.11.1
   printing: ^5.13.3
   file_saver: ^0.2.14
-  file_picker: ^8.1.6
-
-# Blocca flutter_plugin_android_lifecycle: dalla 2.0.35 le androidx
-# aggiornate richiedono compileSdk 36 e rompono la build dei plugin
-# (es. file_picker) compilati contro android-34/35.
-dependency_overrides:
-  flutter_plugin_android_lifecycle: 2.0.34
+  # file_picker 8.x compila contro android-34 e rompe la build (i plugin
+  # moderni richiedono compileSdk 36); dalla 9.x segue flutter.compileSdkVersion.
+  file_picker: ^11.0.2
 
 dev_dependencies:
   flutter_lints: ^4.0.0
