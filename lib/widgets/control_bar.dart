@@ -7,7 +7,7 @@ import 'text_prompt.dart';
 
 /// Barra controlli compatta su due righe:
 ///  1) modalità (accordo, abbellimento, prova) + cancella
-///  2) durata (− n +), dita 1..5 (ri-tocco = toglie), velocità ↝ (cicla 1..5)
+///  2) durata (− n +), dita 1..5 (tap = principale, long-press = sostituzione)
 class ControlBar extends StatelessWidget {
   final AppState state;
   const ControlBar({super.key, required this.state});
@@ -157,22 +157,6 @@ class ControlBar extends StatelessWidget {
                     ),
                   ),
                 ),
-              const Spacer(),
-              // Velocità abbellimenti: un chip che cicla 1..5.
-              _SquareBtn(
-                width: 52,
-                tooltip: state.tr.ornamentSpeed,
-                enabled: true,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  state.cycleOrnamentSpeed();
-                },
-                child: Text(
-                  '↝${state.ornamentSpeed}',
-                  style: mono(
-                      size: 14, weight: FontWeight.w700, color: Palette.brass),
-                ),
-              ),
             ],
           ),
         ],

@@ -70,6 +70,7 @@ class AppState extends ChangeNotifier {
     audioOn = _prefs?.getBool('audioOn') ?? true;
     ornamentSpeed = (_prefs?.getInt('ornamentSpeed') ?? 3).clamp(1, 5);
     uiLang = _prefs?.getString('uiLang') ?? 'system';
+    playbackSpeed = (_prefs?.getDouble('playbackSpeed') ?? 1.0).clamp(0.5, 2.0);
     final raw = _prefs?.getString('sequence');
     if (raw != null && raw.isNotEmpty) {
       try {
@@ -107,6 +108,7 @@ class AppState extends ChangeNotifier {
     _prefs?.setBool('audioOn', audioOn);
     _prefs?.setInt('ornamentSpeed', ornamentSpeed);
     _prefs?.setString('uiLang', uiLang);
+    _prefs?.setDouble('playbackSpeed', playbackSpeed);
   }
 
   void incOrnamentSpeed() {
@@ -128,6 +130,24 @@ class AppState extends ChangeNotifier {
     ornamentSpeed = ornamentSpeed % 5 + 1;
     _commit();
   }
+
+  /// Imposta la velocità direttamente (slider nelle Impostazioni).
+  void setOrnamentSpeed(int v) {
+    ornamentSpeed = v.clamp(1, 5);
+    _commit();
+  }
+
+  /// Velocità globale di riproduzione (0.5x .. 2x): scala tutte le durate
+  /// del Play (note, accordi, abbellimenti, pause).
+  double playbackSpeed = 1.0;
+
+  void setPlaybackSpeed(double v) {
+    playbackSpeed = v.clamp(0.5, 2.0);
+    _commit();
+  }
+
+  /// Durata scalata dalla velocità globale.
+  int _scaledMs(num baseMs) => (baseMs / playbackSpeed).round();
 
   // --- Voce bersaglio ------------------------------------------------------
 
@@ -537,7 +557,7 @@ class AppState extends ChangeNotifier {
       final e = sequence[i];
       if (e.isText) {
         // Etichetta di sezione: breve pausa, nessun suono.
-        await Future.delayed(const Duration(milliseconds: 200));
+        await Future.delayed(Duration(milliseconds: _scaledMs(200)));
         continue;
       }
       if (e.run) {
@@ -545,14 +565,16 @@ class AppState extends ChangeNotifier {
         for (final m in e.midis) {
           if (token != _playToken) break;
           _synth.play(m);
-          await Future.delayed(Duration(milliseconds: ornamentGapMs));
+          await Future.delayed(Duration(milliseconds: _scaledMs(ornamentGapMs)));
         }
-        await Future.delayed(Duration(milliseconds: 120 + e.len * 170));
+        await Future.delayed(
+            Duration(milliseconds: _scaledMs(120 + e.len * 170)));
       } else {
         for (final m in e.midis) {
           _synth.play(m);
         }
-        await Future.delayed(Duration(milliseconds: 280 + e.len * 170));
+        await Future.delayed(
+            Duration(milliseconds: _scaledMs(280 + e.len * 170)));
       }
     }
     if (token == _playToken) {

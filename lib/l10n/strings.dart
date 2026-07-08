@@ -69,6 +69,9 @@ class Str {
   final String settingsTitle;
   final String language;
   final String systemLanguage;
+  final String playbackSection;
+  final String playbackSpeedLabel;
+  final String ornamentSpeedLabel;
 
   const Str({
     required this.annotation,
@@ -137,6 +140,9 @@ class Str {
     required this.settingsTitle,
     required this.language,
     required this.systemLanguage,
+    required this.playbackSection,
+    required this.playbackSpeedLabel,
+    required this.ornamentSpeedLabel,
   });
 }
 
@@ -211,6 +217,9 @@ final Str strIt = Str(
   settingsTitle: 'Impostazioni',
   language: 'Lingua',
   systemLanguage: 'Sistema',
+  playbackSection: 'Riproduzione',
+  playbackSpeedLabel: 'Velocità di riproduzione',
+  ornamentSpeedLabel: 'Velocità abbellimenti',
 );
 
 final Str strEn = Str(
@@ -280,6 +289,9 @@ final Str strEn = Str(
   settingsTitle: 'Settings',
   language: 'Language',
   systemLanguage: 'System',
+  playbackSection: 'Playback',
+  playbackSpeedLabel: 'Playback speed',
+  ornamentSpeedLabel: 'Ornament speed',
 );
 
 final Str strPt = Str(
@@ -349,6 +361,9 @@ final Str strPt = Str(
   settingsTitle: 'Configurações',
   language: 'Idioma',
   systemLanguage: 'Sistema',
+  playbackSection: 'Reprodução',
+  playbackSpeedLabel: 'Velocidade de reprodução',
+  ornamentSpeedLabel: 'Velocidade dos ornamentos',
 );
 
 /// Risolve la lingua: 'system' usa la lingua del dispositivo; it/en/pt
