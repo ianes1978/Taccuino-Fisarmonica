@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -71,6 +72,29 @@ class ExportService {
 
   // --- JSON ----------------------------------------------------------------
 
+  /// Salva bytes JSON in modo visibile all'utente:
+  ///  - web: download automatico (saveFile);
+  ///  - Android/desktop: dialog di sistema "Salva con nome" (saveAs).
+  ///    saveFile su Android scriverebbe nella cartella privata dell'app,
+  ///    invisibile all'utente — per questo l'export "sembrava non funzionare".
+  static Future<void> _saveJsonBytes(String name, Uint8List bytes) async {
+    if (kIsWeb) {
+      await FileSaver.instance.saveFile(
+        name: name,
+        bytes: bytes,
+        ext: 'json',
+        mimeType: MimeType.json,
+      );
+    } else {
+      await FileSaver.instance.saveAs(
+        name: name,
+        bytes: bytes,
+        ext: 'json',
+        mimeType: MimeType.json,
+      );
+    }
+  }
+
   /// Esporta una musica in un file `[titolo].json` autoconsistente.
   static Future<void> exportSongJson(SavedSong song) async {
     final envelope = {
@@ -80,12 +104,7 @@ class ExportService {
     };
     final str = const JsonEncoder.withIndent('  ').convert(envelope);
     final bytes = Uint8List.fromList(utf8.encode(str));
-    await FileSaver.instance.saveFile(
-      name: safeName(song.name),
-      bytes: bytes,
-      ext: 'json',
-      mimeType: MimeType.other,
-    );
+    await _saveJsonBytes(safeName(song.name), bytes);
   }
 
   /// Esporta TUTTE le musiche in un unico file `taccuino-fisarmonica.json`.
@@ -97,12 +116,7 @@ class ExportService {
     };
     final str = const JsonEncoder.withIndent('  ').convert(envelope);
     final bytes = Uint8List.fromList(utf8.encode(str));
-    await FileSaver.instance.saveFile(
-      name: 'taccuino-fisarmonica',
-      bytes: bytes,
-      ext: 'json',
-      mimeType: MimeType.other,
-    );
+    await _saveJsonBytes('taccuino-fisarmonica', bytes);
   }
 
   /// Importa da un file JSON scelto dall'utente. Accetta sia un singolo brano
