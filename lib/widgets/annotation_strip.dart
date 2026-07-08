@@ -36,7 +36,7 @@ class AnnotationStrip extends StatelessWidget {
         color: Palette.panel,
         border: Border(bottom: BorderSide(color: Palette.line)),
       ),
-      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+      padding: const EdgeInsets.fromLTRB(12, 2, 4, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -93,9 +93,9 @@ class AnnotationStrip extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
           SizedBox(
-            height: 80,
+            height: 68,
             child: empty
                 ? Align(
                     alignment: Alignment.centerLeft,
@@ -162,12 +162,14 @@ class _HeaderButton extends StatelessWidget {
     return IconButton(
       onPressed: onTap,
       tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.all(6),
       icon: Icon(icon,
           size: 20, color: filled ? Palette.bg : Palette.brass),
       style: filled
           ? IconButton.styleFrom(backgroundColor: Palette.brass)
           : null,
-      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
     );
   }
 }

@@ -109,6 +109,12 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Cicla la velocità 1 -> 2 -> ... -> 5 -> 1 (per il chip compatto).
+  void cycleOrnamentSpeed() {
+    ornamentSpeed = ornamentSpeed % 5 + 1;
+    _commit();
+  }
+
   // --- Voce bersaglio ------------------------------------------------------
 
   /// Indice della voce su cui agiscono +, − e ⌫ (default = ultima).

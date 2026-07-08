@@ -51,24 +51,14 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Palette.bg,
-      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Taccuino Fisarmonica',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: display(size: 21, weight: FontWeight.w600)),
-                Text('blocco note musicale',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: mono(size: 10, color: Palette.muted, spacing: 1)),
-              ],
-            ),
+            child: Text('Taccuino Fisarmonica',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: display(size: 17, weight: FontWeight.w600)),
           ),
           _HeaderToggle(
             label: state.italian ? 'Do Re Mi' : 'C D E',
@@ -546,12 +536,12 @@ class _HeaderToggle extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(10),
           child: Container(
-            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 9),
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: Palette.panel,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(9),
               border: Border.all(
                 color: active ? Palette.brassDim : Palette.brassDeep,
                 width: 1.5,
@@ -560,7 +550,7 @@ class _HeaderToggle extends StatelessWidget {
             child: Text(
               label,
               style: mono(
-                size: 14,
+                size: 12,
                 weight: FontWeight.w700,
                 color: active ? Palette.brass : Palette.muted,
               ),

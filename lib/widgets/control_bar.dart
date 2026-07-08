@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 
-/// Barra controlli: modalità (accordo, prova), durata, diteggiatura, cancella.
+/// Barra controlli compatta su due righe:
+///  1) modalità (accordo, abbellimento, prova) + cancella
+///  2) durata (− n +), dita 1..5 (ri-tocco = toglie), velocità ↝ (cicla 1..5)
 class ControlBar extends StatelessWidget {
   final AppState state;
   const ControlBar({super.key, required this.state});
@@ -14,17 +16,16 @@ class ControlBar extends StatelessWidget {
     final hasTarget = state.targetEntry != null;
     return Container(
       color: Palette.bg,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Riga modalità
           Row(
             children: [
               Expanded(
                 child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: 6,
+                  runSpacing: 6,
                   children: [
                     _ToggleChip(
                       label: '≡ accordo',
@@ -53,66 +54,90 @@ class ControlBar extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              _IconAction(
-                icon: Icons.backspace_outlined,
+              const SizedBox(width: 6),
+              _SquareBtn(
+                width: 46,
                 tooltip: 'Cancella voce',
                 enabled: hasTarget,
                 onTap: () {
                   HapticFeedback.mediumImpact();
                   state.deleteTarget();
                 },
+                child: Icon(Icons.backspace_outlined,
+                    size: 20,
+                    color: hasTarget ? Palette.brass : Palette.brassDeep),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // Riga durata + velocità abbellimento
-          Wrap(
-            spacing: 16,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                _GroupLabel('Durata'),
-                const SizedBox(width: 8),
-                _DurationGroup(state: state, enabled: hasTarget),
-              ]),
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                _GroupLabel('Vel ↝'),
-                const SizedBox(width: 8),
-                _SpeedGroup(state: state),
-              ]),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Riga diteggiatura
+          const SizedBox(height: 6),
           Row(
             children: [
-              _GroupLabel('Dita'),
-              const SizedBox(width: 8),
-              Expanded(child: _FingerGroup(state: state, enabled: hasTarget)),
+              // Durata: − n +
+              _StepperGroup(
+                value: state.targetEntry?.len ?? 0,
+                enabled: hasTarget,
+                min: 0,
+                max: 8,
+                decTooltip: 'Meno durata',
+                incTooltip: 'Più durata',
+                onDec: () {
+                  HapticFeedback.lightImpact();
+                  state.decLen();
+                },
+                onInc: () {
+                  HapticFeedback.lightImpact();
+                  state.incLen();
+                },
+              ),
+              const Spacer(),
+              // Dita 1..5: ri-toccare il dito attivo lo toglie.
+              for (var f = 1; f <= 5; f++)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: _SquareBtn(
+                    width: 36,
+                    tooltip: 'Dito $f',
+                    enabled: hasTarget,
+                    active: state.currentFinger == f,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      if (state.currentFinger == f) {
+                        state.clearFinger();
+                      } else {
+                        state.setFinger(f);
+                      }
+                    },
+                    child: Text(
+                      '$f',
+                      style: mono(
+                        size: 14,
+                        weight: FontWeight.w700,
+                        color: state.currentFinger == f
+                            ? Palette.bg
+                            : (hasTarget ? Palette.brass : Palette.brassDeep),
+                      ),
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              // Velocità abbellimenti: un chip che cicla 1..5.
+              _SquareBtn(
+                width: 52,
+                tooltip: 'Velocità abbellimenti (1..5)',
+                enabled: true,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  state.cycleOrnamentSpeed();
+                },
+                child: Text(
+                  '↝${state.ornamentSpeed}',
+                  style: mono(
+                      size: 14, weight: FontWeight.w700, color: Palette.brass),
+                ),
+              ),
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _GroupLabel extends StatelessWidget {
-  final String text;
-  const _GroupLabel(this.text);
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 54,
-      child: Text(
-        text,
-        style: mono(
-            size: 11,
-            color: Palette.muted,
-            weight: FontWeight.w700,
-            spacing: 1),
       ),
     );
   }
@@ -132,21 +157,21 @@ class _ToggleChip extends StatelessWidget {
       toggled: active,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(9),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          constraints: const BoxConstraints(minHeight: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: active ? Palette.brass : Palette.panel,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(9),
             border: Border.all(
                 color: active ? Palette.brass : Palette.brassDim, width: 1.5),
           ),
           child: Text(
             label,
             style: mono(
-              size: 13,
+              size: 12,
               weight: FontWeight.w700,
               color: active ? Palette.bg : Palette.brass,
             ),
@@ -157,221 +182,112 @@ class _ToggleChip extends StatelessWidget {
   }
 }
 
-class _DurationGroup extends StatelessWidget {
-  final AppState state;
-  final bool enabled;
-  const _DurationGroup({required this.state, required this.enabled});
-
-  @override
-  Widget build(BuildContext context) {
-    final len = state.targetEntry?.len ?? 0;
-    return Container(
-      decoration: BoxDecoration(
-        color: Palette.panel,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Palette.brassDim, width: 1.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _IconAction(
-            icon: Icons.remove,
-            tooltip: 'Meno durata',
-            enabled: enabled && len > 0,
-            flat: true,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              state.decLen();
-            },
-          ),
-          Container(
-            width: 34,
-            alignment: Alignment.center,
-            child: Text('$len',
-                style: mono(size: 15, weight: FontWeight.w700)),
-          ),
-          _IconAction(
-            icon: Icons.add,
-            tooltip: 'Più durata',
-            enabled: enabled && len < 8,
-            flat: true,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              state.incLen();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SpeedGroup extends StatelessWidget {
-  final AppState state;
-  const _SpeedGroup({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    final v = state.ornamentSpeed;
-    return Container(
-      decoration: BoxDecoration(
-        color: Palette.panel,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Palette.brassDim, width: 1.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _IconAction(
-            icon: Icons.remove,
-            tooltip: 'Più lento',
-            enabled: v > 1,
-            flat: true,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              state.decOrnamentSpeed();
-            },
-          ),
-          Container(
-            width: 34,
-            alignment: Alignment.center,
-            child: Text('$v', style: mono(size: 15, weight: FontWeight.w700)),
-          ),
-          _IconAction(
-            icon: Icons.add,
-            tooltip: 'Più veloce',
-            enabled: v < 5,
-            flat: true,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              state.incOrnamentSpeed();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FingerGroup extends StatelessWidget {
-  final AppState state;
-  final bool enabled;
-  const _FingerGroup({required this.state, required this.enabled});
-
-  @override
-  Widget build(BuildContext context) {
-    final current = state.currentFinger;
-    return Row(
-      children: [
-        for (var f = 1; f <= 5; f++)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: _FingerButton(
-                finger: f,
-                active: current == f,
-                enabled: enabled,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  state.setFinger(f);
-                },
-              ),
-            ),
-          ),
-        _IconAction(
-          icon: Icons.close,
-          tooltip: 'Togli dito',
-          enabled: enabled && current != null,
-          onTap: () {
-            HapticFeedback.lightImpact();
-            state.clearFinger();
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _FingerButton extends StatelessWidget {
-  final int finger;
-  final bool active;
-  final bool enabled;
-  final VoidCallback onTap;
-  const _FingerButton({
-    required this.finger,
-    required this.active,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active
-        ? Palette.bg
-        : (enabled ? Palette.brass : Palette.brassDeep);
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: 'Dito $finger',
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(9),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 44),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: active ? Palette.brass : Palette.panel,
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(
-              color: active ? Palette.brass : Palette.brassDim,
-              width: 1.5,
-            ),
-          ),
-          child: Text('$finger',
-              style: mono(size: 15, weight: FontWeight.w700, color: color)),
-        ),
-      ),
-    );
-  }
-}
-
-class _IconAction extends StatelessWidget {
-  final IconData icon;
+/// Pulsante quadrato compatto (40 px di altezza).
+class _SquareBtn extends StatelessWidget {
+  final double width;
   final String tooltip;
   final bool enabled;
-  final bool flat;
+  final bool active;
   final VoidCallback onTap;
-  const _IconAction({
-    required this.icon,
+  final Widget child;
+  const _SquareBtn({
+    required this.width,
     required this.tooltip,
     required this.enabled,
     required this.onTap,
-    this.flat = false,
+    required this.child,
+    this.active = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = enabled ? Palette.brass : Palette.brassDeep;
-    final child = Container(
-      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-      alignment: Alignment.center,
-      decoration: flat
-          ? null
-          : BoxDecoration(
-              color: Palette.panel,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Palette.brassDim, width: 1.5),
-            ),
-      child: Icon(icon, color: color, size: 22),
-    );
     return Semantics(
       button: true,
       enabled: enabled,
       label: tooltip,
       child: InkWell(
         onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(10),
-        child: child,
+        borderRadius: BorderRadius.circular(9),
+        child: Container(
+          width: width,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active ? Palette.brass : Palette.panel,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: active
+                  ? Palette.brass
+                  : (enabled ? Palette.brassDim : Palette.brassDeep),
+              width: 1.5,
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Gruppo − n + compatto.
+class _StepperGroup extends StatelessWidget {
+  final int value;
+  final bool enabled;
+  final int min;
+  final int max;
+  final String decTooltip;
+  final String incTooltip;
+  final VoidCallback onDec;
+  final VoidCallback onInc;
+  const _StepperGroup({
+    required this.value,
+    required this.enabled,
+    required this.min,
+    required this.max,
+    required this.decTooltip,
+    required this.incTooltip,
+    required this.onDec,
+    required this.onInc,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Widget btn(IconData icon, String tip, bool on, VoidCallback tap) {
+      return Semantics(
+        button: true,
+        enabled: on,
+        label: tip,
+        child: InkWell(
+          onTap: on ? tap : null,
+          child: SizedBox(
+            width: 34,
+            height: 40,
+            child: Icon(icon,
+                size: 20, color: on ? Palette.brass : Palette.brassDeep),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Palette.panel,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: Palette.brassDim, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          btn(Icons.remove, decTooltip, enabled && value > min, onDec),
+          SizedBox(
+            width: 22,
+            child: Center(
+              child: Text('$value',
+                  style: mono(size: 14, weight: FontWeight.w700)),
+            ),
+          ),
+          btn(Icons.add, incTooltip, enabled && value < max, onInc),
+        ],
       ),
     );
   }
