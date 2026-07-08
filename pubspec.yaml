@@ -17,9 +17,12 @@ dependencies:
   pdf: ^3.11.1
   printing: ^5.13.3
   file_saver: ^0.2.14
-  # file_picker 8.x compila contro android-34 e rompe la build (i plugin
-  # moderni richiedono compileSdk 36); dalla 9.x segue flutter.compileSdkVersion.
-  file_picker: ^11.0.2
+  # file_picker: serve la serie 10.x. La 8.x compila hardcoded contro
+  # android-34 (rompe il check AAR con i plugin a compileSdk 36); la 11.x
+  # ha un bug di registrazione Android (GeneratedPluginRegistrant non trova
+  # FilePickerPlugin). La 10.3.x segue flutter.compileSdkVersion e registra
+  # correttamente.
+  file_picker: ">=10.3.11 <11.0.0"
 
 dev_dependencies:
   flutter_lints: ^4.0.0
