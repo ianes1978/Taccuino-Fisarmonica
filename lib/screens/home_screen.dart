@@ -34,6 +34,7 @@ class HomeScreen extends StatelessWidget {
                     highlightedMidis: state.highlightedMidis,
                     focusMidi: state.keyboardFocusMidi,
                     fingers: state.highlightedFingers,
+                    fingers2: state.highlightedFingers2,
                   ),
                 ),
               ],

@@ -160,6 +160,9 @@ class AppState extends ChangeNotifier {
   /// Diteggiatura da riportare sui tasti evidenziati.
   Map<int, int> get highlightedFingers => _activeEntry?.fingers ?? const {};
 
+  /// Sostituzioni di dito da riportare sui tasti evidenziati.
+  Map<int, int> get highlightedFingers2 => _activeEntry?.fingers2 ?? const {};
+
   /// Nota a fuoco da marcare più forte sulla tastiera (solo per voci con
   /// più note e fuori dalla riproduzione: per la nota singola basta
   /// l'evidenziazione normale).
@@ -475,6 +478,7 @@ class AppState extends ChangeNotifier {
     final m = effectiveFocusMidi;
     if (e != null && m != null) {
       e.setFinger(m, finger);
+      e.clearFinger2(m); // nuovo principale: riparte senza sostituzione
       _commit();
     }
   }
@@ -488,11 +492,34 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Sostituzione del dito (long-press): imposta/toglie il secondo dito.
+  /// Richiede un dito principale già impostato e diverso dal secondo.
+  void toggleFinger2(int finger) {
+    final e = targetEntry;
+    final m = effectiveFocusMidi;
+    if (e == null || m == null) return;
+    final primary = e.fingerOf(m);
+    if (primary == null || primary == finger) return;
+    if (e.finger2Of(m) == finger) {
+      e.clearFinger2(m);
+    } else {
+      e.setFinger2(m, finger);
+    }
+    _commit();
+  }
+
   int? get currentFinger {
     final e = targetEntry;
     final m = effectiveFocusMidi;
     if (e == null || m == null) return null;
     return e.fingerOf(m);
+  }
+
+  int? get currentFinger2 {
+    final e = targetEntry;
+    final m = effectiveFocusMidi;
+    if (e == null || m == null) return null;
+    return e.finger2Of(m);
   }
 
   // --- Riproduzione --------------------------------------------------------

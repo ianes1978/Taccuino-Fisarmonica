@@ -35,11 +35,14 @@ String noteLabel(int midi, {required bool italian}) =>
 
 String _dashes(int len) => '-' * len;
 
-/// Nota con eventuale diteggiatura, es. `La4` oppure `La4(3)`.
+/// Nota con eventuale diteggiatura, es. `La4`, `La4(3)` o — con
+/// sostituzione del dito — `La4(3-1)`.
 String _noteWithFinger(Entry e, int midi, {required bool italian}) {
   final base = noteLabel(midi, italian: italian);
   final f = e.fingerOf(midi);
-  return f == null ? base : '$base($f)';
+  if (f == null) return base;
+  final f2 = e.finger2Of(midi);
+  return f2 == null ? '$base($f)' : '$base($f-$f2)';
 }
 
 /// Formatta una voce nel formato di notazione.

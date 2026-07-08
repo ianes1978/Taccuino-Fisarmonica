@@ -121,6 +121,8 @@ class ControlBar extends StatelessWidget {
               ),
               const Spacer(),
               // Dita 1..5: ri-toccare il dito attivo lo toglie.
+              // Dita: tap = principale (ri-tocco toglie); long-press su un
+              // altro numero = sostituzione del dito (es. 3-1).
               for (var f = 1; f <= 5; f++)
                 Padding(
                   padding: const EdgeInsets.only(right: 4),
@@ -129,6 +131,7 @@ class ControlBar extends StatelessWidget {
                     tooltip: state.tr.fingerN(f),
                     enabled: hasTarget,
                     active: state.currentFinger == f,
+                    semi: state.currentFinger2 == f,
                     onTap: () {
                       HapticFeedback.lightImpact();
                       if (state.currentFinger == f) {
@@ -137,12 +140,17 @@ class ControlBar extends StatelessWidget {
                         state.setFinger(f);
                       }
                     },
+                    onLongPress: () {
+                      HapticFeedback.mediumImpact();
+                      state.toggleFinger2(f);
+                    },
                     child: Text(
                       '$f',
                       style: mono(
                         size: 14,
                         weight: FontWeight.w700,
-                        color: state.currentFinger == f
+                        color: (state.currentFinger == f ||
+                                state.currentFinger2 == f)
                             ? Palette.bg
                             : (hasTarget ? Palette.brass : Palette.brassDeep),
                       ),
@@ -223,7 +231,11 @@ class _SquareBtn extends StatelessWidget {
   final String tooltip;
   final bool enabled;
   final bool active;
+
+  /// Stato "sostituzione": riempimento più tenue del principale.
+  final bool semi;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final Widget child;
   const _SquareBtn({
     required this.width,
@@ -232,6 +244,8 @@ class _SquareBtn extends StatelessWidget {
     required this.onTap,
     required this.child,
     this.active = false,
+    this.semi = false,
+    this.onLongPress,
   });
 
   @override
@@ -242,16 +256,19 @@ class _SquareBtn extends StatelessWidget {
       label: tooltip,
       child: InkWell(
         onTap: enabled ? onTap : null,
+        onLongPress: enabled ? onLongPress : null,
         borderRadius: BorderRadius.circular(9),
         child: Container(
           width: width,
           height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: active ? Palette.brass : Palette.panel,
+            color: active
+                ? Palette.brass
+                : (semi ? Palette.brassDim : Palette.panel),
             borderRadius: BorderRadius.circular(9),
             border: Border.all(
-              color: active
+              color: active || semi
                   ? Palette.brass
                   : (enabled ? Palette.brassDim : Palette.brassDeep),
               width: 1.5,

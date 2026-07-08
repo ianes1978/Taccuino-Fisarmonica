@@ -301,7 +301,7 @@ class _EntryChipState extends State<_EntryChip> {
                   children: [
                     Text(noteLabel(entry.midis[k], italian: italian),
                         style: mono(size: 13, weight: FontWeight.w700)),
-                    _fingerBadge(entry.fingerOf(entry.midis[k])),
+                    _fingerBadge(entry.fingerOf(entry.midis[k]), entry.finger2Of(entry.midis[k])),
                   ],
                 ),
               ),
@@ -325,7 +325,7 @@ class _EntryChipState extends State<_EntryChip> {
         children: [
           Text('${noteLabel(m, italian: italian)}$dashes',
               style: mono(size: 16, weight: FontWeight.w700)),
-          _fingerBadge(entry.fingerOf(m)),
+          _fingerBadge(entry.fingerOf(m), entry.finger2Of(m)),
         ],
       );
     } else {
@@ -357,7 +357,7 @@ class _EntryChipState extends State<_EntryChip> {
                     Text(noteLabel(m, italian: italian),
                         style: mono(
                             size: 13, weight: FontWeight.w700, height: 1.2)),
-                    _fingerBadge(entry.fingerOf(m)),
+                    _fingerBadge(entry.fingerOf(m), entry.finger2Of(m)),
                   ],
                 ),
               ),
@@ -437,19 +437,21 @@ class _EntryChipState extends State<_EntryChip> {
     );
   }
 
-  Widget _fingerBadge(int? finger) {
+  Widget _fingerBadge(int? finger, [int? finger2]) {
     if (finger == null) return const SizedBox.shrink();
+    final label = finger2 == null ? '$finger' : '$finger-$finger2';
     return Padding(
       padding: const EdgeInsets.only(left: 2, top: 1),
       child: Container(
-        width: 14,
+        constraints: const BoxConstraints(minWidth: 14),
         height: 14,
+        padding: const EdgeInsets.symmetric(horizontal: 3),
         alignment: Alignment.center,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Palette.brass,
-          shape: BoxShape.circle,
+          borderRadius: BorderRadius.circular(7),
         ),
-        child: Text('$finger',
+        child: Text(label,
             style: mono(
                 size: 9, weight: FontWeight.w700, color: Palette.bg)),
       ),

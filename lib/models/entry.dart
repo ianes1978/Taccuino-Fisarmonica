@@ -14,6 +14,9 @@ class Entry {
   /// Diteggiatura per nota: midi -> dito (1..5).
   Map<int, int> fingers;
 
+  /// Dito di sostituzione per nota (es. 3-1): midi -> secondo dito (1..5).
+  Map<int, int> fingers2;
+
   /// true = abbellimento (passaggio veloce orizzontale).
   bool run;
 
@@ -24,9 +27,11 @@ class Entry {
     required this.midis,
     this.len = 0,
     Map<int, int>? fingers,
+    Map<int, int>? fingers2,
     this.run = false,
     this.label,
-  }) : fingers = fingers ?? {} {
+  })  : fingers = fingers ?? {},
+        fingers2 = fingers2 ?? {} {
     if (!run) midis.sort();
   }
 
@@ -34,6 +39,7 @@ class Entry {
       : midis = [midi],
         len = len,
         fingers = {},
+        fingers2 = {},
         run = false,
         label = null;
 
@@ -41,6 +47,7 @@ class Entry {
       : midis = List.of(midis),
         len = len,
         fingers = {},
+        fingers2 = {},
         run = true,
         label = null;
 
@@ -48,6 +55,7 @@ class Entry {
       : midis = [],
         len = 0,
         fingers = {},
+        fingers2 = {},
         run = false,
         label = text;
 
@@ -66,7 +74,10 @@ class Entry {
   /// Rimuove una nota (prima occorrenza); ritorna true se la voce è vuota.
   bool removeNote(int midi) {
     midis.remove(midi);
-    if (!midis.contains(midi)) fingers.remove(midi);
+    if (!midis.contains(midi)) {
+      fingers.remove(midi);
+      fingers2.remove(midi);
+    }
     return midis.isEmpty;
   }
 
@@ -74,7 +85,10 @@ class Entry {
   bool removeLast() {
     if (midis.isNotEmpty) {
       final m = midis.removeLast();
-      if (!midis.contains(m)) fingers.remove(m);
+      if (!midis.contains(m)) {
+        fingers.remove(m);
+        fingers2.remove(m);
+      }
     }
     return midis.isEmpty;
   }
@@ -83,9 +97,23 @@ class Entry {
     if (midis.contains(midi)) fingers[midi] = finger;
   }
 
-  void clearFinger(int midi) => fingers.remove(midi);
+  void clearFinger(int midi) {
+    fingers.remove(midi);
+    fingers2.remove(midi);
+  }
 
   int? fingerOf(int midi) => fingers[midi];
+
+  /// Dito di sostituzione (valido solo se c'è il principale).
+  void setFinger2(int midi, int finger) {
+    if (midis.contains(midi) && fingers.containsKey(midi)) {
+      fingers2[midi] = finger;
+    }
+  }
+
+  void clearFinger2(int midi) => fingers2.remove(midi);
+
+  int? finger2Of(int midi) => fingers2[midi];
 
   bool get isChord => midis.length > 1 && !run;
 
@@ -108,6 +136,8 @@ class Entry {
         'm': midis,
         'l': len,
         'f': fingers.map((k, v) => MapEntry(k.toString(), v)),
+        if (fingers2.isNotEmpty)
+          'f2': fingers2.map((k, v) => MapEntry(k.toString(), v)),
         if (run) 'r': true,
         if (label != null) 't': label,
       };
@@ -120,6 +150,10 @@ class Entry {
         run: j['r'] == true,
         label: j['t'] as String?,
         fingers: (j['f'] as Map?)?.map(
+              (k, v) => MapEntry(int.parse(k as String), v as int),
+            ) ??
+            {},
+        fingers2: (j['f2'] as Map?)?.map(
               (k, v) => MapEntry(int.parse(k as String), v as int),
             ) ??
             {},

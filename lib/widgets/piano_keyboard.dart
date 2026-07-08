@@ -20,6 +20,9 @@ class PianoKeyboard extends StatefulWidget {
   /// Diteggiatura da mostrare sui tasti evidenziati.
   final Map<int, int> fingers;
 
+  /// Sostituzioni di dito (es. 3-1) sui tasti evidenziati.
+  final Map<int, int> fingers2;
+
   const PianoKeyboard({
     super.key,
     required this.italian,
@@ -27,6 +30,7 @@ class PianoKeyboard extends StatefulWidget {
     this.highlightedMidis = const {},
     this.focusMidi,
     this.fingers = const {},
+    this.fingers2 = const {},
   });
 
   @override
@@ -125,6 +129,7 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
     final focused = highlighted && widget.focusMidi == midi;
     final active = pressed || highlighted;
     final finger = highlighted ? widget.fingers[midi] : null;
+    final finger2 = highlighted ? widget.fingers2[midi] : null;
     return Positioned(
       top: i * whiteH,
       left: 0,
@@ -162,7 +167,7 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              _fingerOnKey(finger, small: false),
+              _fingerOnKey(finger, finger2, small: false),
               const Spacer(),
               _keyLabel(
                 midi,
@@ -186,6 +191,7 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
     final focused = highlighted && widget.focusMidi == midi;
     final active = pressed || highlighted;
     final finger = highlighted ? widget.fingers[midi] : null;
+    final finger2 = highlighted ? widget.fingers2[midi] : null;
     return Positioned(
       top: boundaryY - blackH / 2,
       right: 0,
@@ -235,7 +241,7 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
-                _fingerOnKey(finger, small: true),
+                _fingerOnKey(finger, finger2, small: true),
                 const Spacer(),
                 _keyLabel(
                   midi,
@@ -250,20 +256,22 @@ class _PianoKeyboardState extends State<PianoKeyboard> {
     );
   }
 
-  /// Pallino con il numero del dito, mostrato sul tasto evidenziato.
-  Widget _fingerOnKey(int? finger, {required bool small}) {
+  /// Pallino col dito (o sostituzione 3-1), mostrato sul tasto evidenziato.
+  Widget _fingerOnKey(int? finger, int? finger2, {required bool small}) {
     if (finger == null) return const SizedBox.shrink();
     final d = small ? 17.0 : 22.0;
+    final label = finger2 == null ? '$finger' : '$finger-$finger2';
     return Container(
-      width: d,
+      constraints: BoxConstraints(minWidth: d),
       height: d,
+      padding: EdgeInsets.symmetric(horizontal: small ? 3 : 4),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Palette.brassDeep,
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(d / 2),
         border: Border.all(color: Palette.ivory, width: 1.5),
       ),
-      child: Text('$finger',
+      child: Text(label,
           style: mono(
               size: small ? 10 : 12,
               weight: FontWeight.w800,
