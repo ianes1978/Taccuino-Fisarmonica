@@ -7,6 +7,11 @@ import '../theme.dart';
 
 /// Vista a tutto schermo delle note, formattata e con a-capo automatici,
 /// senza tastiera. + / − per ridimensionare il testo.
+///
+/// Se ci sono appunti di bassi, ogni riga diventa un "sistema" a due righe:
+/// sopra le voci della tastiera, sotto (in rosso) i giri di bassi allineati
+/// alle voci coperte. Quando un giro prosegue nella riga dopo, lo indica
+/// una freccia (→).
 class ScoreView extends StatefulWidget {
   final List<Entry> entries;
   final List<Entry> bassEntries;
@@ -88,12 +93,18 @@ class _ScoreViewState extends State<ScoreView> {
                       child: Text(widget.tr.noNotes,
                           style: mono(size: 15, color: Palette.muted)),
                     )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: _buildSections(),
-                      ),
+                  : LayoutBuilder(
+                      builder: (context, cons) {
+                        final avail = cons.maxWidth - 36; // padding 18+18
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children:
+                                _buildSections(avail < 60 ? 60 : avail),
+                          ),
+                        );
+                      },
                     ),
             ),
           ],
@@ -103,48 +114,58 @@ class _ScoreViewState extends State<ScoreView> {
   }
 }
 
+/// Token misurato: indice della voce, testo formattato, larghezza.
+class _Tok {
+  final int idx;
+  final String text;
+  final double w;
+  _Tok(this.idx, this.text, this.w);
+}
+
 extension on _ScoreViewState {
-  /// Le etichette di testo diventano sottotitoli che dividono in sezioni.
-  /// Le voci coperte da un appunto di bassi formano un blocco: riga delle
-  /// note sopra, giro di bassi in ROSSO sotto (linea della tastiera +
-  /// linea dei bassi).
-  List<Widget> _buildSections() {
+  double _textW(String s, TextStyle style) {
+    final tp = TextPainter(
+      text: TextSpan(text: s, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    return tp.width;
+  }
+
+  String _giro(Entry a) => a.basses
+      .map((c) => bassLabel(c, italian: widget.italian))
+      .join(' ');
+
+  /// Spezza le voci in righe che stanno nella larghezza disponibile;
+  /// le etichette di testo restano sottotitoli di sezione.
+  List<Widget> _buildSections(double avail) {
     final out = <Widget>[];
-    var tokens = <Widget>[];
+    final gap = _size * 0.45;
+    final runGap = _size * 0.55;
+    final tokPad = _size * 0.7 + 4; // padding orizzontale + bordo + slack
 
-    void flush() {
-      if (tokens.isEmpty) return;
-      out.add(Padding(
-        padding: EdgeInsets.only(bottom: _size * 0.55),
-        child: Wrap(
-          spacing: _size * 0.45,
-          runSpacing: _size * 0.55,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: tokens,
-        ),
-      ));
-      tokens = <Widget>[];
-    }
-
-    String bassText(List<Entry> anns) => anns
-        .map((a) => a.basses
-            .map((c) => bassLabel(c, italian: widget.italian))
-            .join(' '))
-        .join('  ·  ');
-
-    final entries = widget.entries;
     final anns = List.of(widget.bassEntries)
       ..sort((a, b) => a.anchorStart.compareTo(b.anchorStart));
-    final consumed = <Entry>{};
+    final labelDone = <Entry>{};
+    final shown = <Entry>{};
 
-    var i = 0;
-    while (i < entries.length) {
-      final e = entries[i];
+    var line = <_Tok>[];
+    var lineW = 0.0;
+
+    void flushLine() {
+      if (line.isEmpty) return;
+      out.add(_lineWidget(line, anns, labelDone, shown, gap, runGap));
+      line = <_Tok>[];
+      lineW = 0;
+    }
+
+    for (var i = 0; i < widget.entries.length; i++) {
+      final e = widget.entries[i];
       if (e.isText) {
-        flush();
+        flushLine();
         out.add(Padding(
           padding: EdgeInsets.only(
-              top: out.isEmpty ? 0 : _size * 0.8, bottom: _size * 0.45),
+              top: out.isEmpty ? 0 : _size * 0.6, bottom: _size * 0.45),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -160,89 +181,24 @@ extension on _ScoreViewState {
             ],
           ),
         ));
-        i++;
         continue;
       }
-      // Raccogli gli appunti che iniziano qui (e quelli che iniziano dentro
-      // il blocco man mano che si allarga).
-      var end = i + 1;
-      final group = <Entry>[];
-      var grew = true;
-      while (grew) {
-        grew = false;
-        for (final a in anns) {
-          if (consumed.contains(a)) continue;
-          if (a.anchorStart >= i && a.anchorStart < end) {
-            consumed.add(a);
-            group.add(a);
-            if (a.anchorEnd > end) {
-              end = a.anchorEnd;
-              grew = true;
-            }
-          }
-        }
-      }
-      if (group.isEmpty) {
-        tokens.add(
-          _Token(text: formatEntry(e, italian: widget.italian), size: _size),
-        );
-        i++;
-        continue;
-      }
-      // Il blocco si ferma comunque a un eventuale sottotitolo.
-      if (end > entries.length) end = entries.length;
-      var stop = end;
-      for (var k = i; k < end; k++) {
-        if (entries[k].isText) {
-          stop = k;
-          break;
-        }
-      }
-      if (stop <= i) stop = i + 1; // sicurezza
-      flush();
-      out.add(Container(
-        margin: EdgeInsets.only(bottom: _size * 0.55),
-        padding: EdgeInsets.only(left: _size * 0.35),
-        decoration: const BoxDecoration(
-          border: Border(
-            left: BorderSide(color: Palette.bassRed, width: 3),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: _size * 0.45,
-              runSpacing: _size * 0.55,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (var k = i; k < stop; k++)
-                  _Token(
-                      text: formatEntry(entries[k], italian: widget.italian),
-                      size: _size),
-              ],
-            ),
-            SizedBox(height: _size * 0.25),
-            Text(
-              bassText(group),
-              style: mono(
-                  size: _size * 0.85,
-                  weight: FontWeight.w700,
-                  color: Palette.bassRed),
-            ),
-          ],
-        ),
-      ));
-      i = stop;
+      final text = formatEntry(e, italian: widget.italian);
+      final w =
+          _textW(text, mono(size: _size, weight: FontWeight.w700)) + tokPad;
+      if (line.isNotEmpty && lineW + gap + w > avail) flushLine();
+      lineW = line.isEmpty ? w : lineW + gap + w;
+      line.add(_Tok(i, text, w));
     }
-    flush();
-    // Appunti rimasti fuori (ancore oltre la fine: dati vecchi).
-    final leftover = anns.where((a) => !consumed.contains(a)).toList();
+    flushLine();
+
+    // Appunti mai mostrati (ancore oltre la fine: dati vecchi).
+    final leftover = anns.where((a) => !shown.contains(a)).toList();
     if (leftover.isNotEmpty) {
       out.add(Padding(
         padding: EdgeInsets.only(top: _size * 0.4),
         child: Text(
-          bassText(leftover),
+          leftover.map(_giro).join('   '),
           style: mono(
               size: _size * 0.85,
               weight: FontWeight.w700,
@@ -251,6 +207,113 @@ extension on _ScoreViewState {
       ));
     }
     return out;
+  }
+
+  /// Una riga del "sistema": voci sopra; se coperte da appunti, giri di
+  /// bassi in rosso sotto, allineati (con frecce di continuazione).
+  Widget _lineWidget(List<_Tok> line, List<Entry> anns, Set<Entry> labelDone,
+      Set<Entry> shown, double gap, double runGap) {
+    final xs = <double>[];
+    var x = 0.0;
+    for (final t in line) {
+      xs.add(x);
+      x += t.w + gap;
+    }
+    final lineWidth = x - gap;
+    final lastIdx = line.last.idx;
+
+    final segs = <Widget>[];
+    for (final a in anns) {
+      int? first;
+      int? last;
+      for (var k = 0; k < line.length; k++) {
+        if (line[k].idx >= a.anchorStart && line[k].idx < a.anchorEnd) {
+          first ??= k;
+          last = k;
+        }
+      }
+      if (first == null || last == null) continue;
+      shown.add(a);
+      final left = xs[first];
+      final w = xs[last] + line[last].w - left;
+      final contNext = a.anchorEnd - 1 > lastIdx;
+      String label;
+      if (labelDone.contains(a)) {
+        label = contNext ? '→   →' : '→';
+      } else {
+        label = _giro(a);
+        if (contNext) label = '$label →';
+        labelDone.add(a);
+      }
+      segs.add(Positioned(
+        left: left,
+        top: 0,
+        width: w,
+        height: 2.5,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Palette.bassRed.withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ));
+      segs.add(Positioned(
+        left: left,
+        top: 4,
+        width: w,
+        height: _size * 1.15,
+        child: Center(
+          child: OverflowBox(
+            maxWidth: double.infinity,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: mono(
+                  size: _size * 0.8,
+                  weight: FontWeight.w700,
+                  color: Palette.bassRed),
+            ),
+          ),
+        ),
+      ));
+    }
+
+    final melody = Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (var k = 0; k < line.length; k++)
+          Padding(
+            padding:
+                EdgeInsets.only(right: k == line.length - 1 ? 0 : gap),
+            child: SizedBox(
+              width: line[k].w,
+              child: _Token(text: line[k].text, size: _size),
+            ),
+          ),
+      ],
+    );
+
+    if (segs.isEmpty) {
+      return Padding(
+          padding: EdgeInsets.only(bottom: runGap), child: melody);
+    }
+    return Padding(
+      padding: EdgeInsets.only(bottom: runGap),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          melody,
+          const SizedBox(height: 3),
+          SizedBox(
+            width: lineWidth,
+            height: 4 + _size * 1.15,
+            child: Stack(clipBehavior: Clip.none, children: segs),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -263,6 +326,7 @@ class _Token extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: size * 0.35, vertical: size * 0.2),
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Palette.panel,
         borderRadius: BorderRadius.circular(8),
@@ -270,6 +334,7 @@ class _Token extends StatelessWidget {
       ),
       child: Text(
         text,
+        maxLines: 1,
         style: mono(size: size, weight: FontWeight.w700),
       ),
     );

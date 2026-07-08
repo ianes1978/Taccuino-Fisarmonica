@@ -26,6 +26,11 @@ class _AnnotationStripState extends State<AnnotationStrip> {
   final ScrollController _bassCtrl = ScrollController();
   bool _syncing = false;
 
+  // Geometria dei chip dell'ultimo build (per le maniglie di stretch).
+  List<double> _xs = const [];
+  List<double> _ws = const [];
+  double _dragX = 0;
+
   AppState get state => widget.state;
 
   @override
@@ -161,6 +166,8 @@ class _AnnotationStripState extends State<AnnotationStrip> {
       acc += w + _gap;
     }
     final totalW = acc;
+    _xs = xs;
+    _ws = widths;
 
     return Container(
       decoration: const BoxDecoration(
@@ -360,7 +367,7 @@ class _AnnotationStripState extends State<AnnotationStrip> {
       );
     }
     final children = <Widget>[];
-    // Intervallo in corso di selezione: guida leggera sotto le voci scelte.
+    // Intervallo selezionato: guida leggera sotto le voci scelte.
     if (state.bassMode && state.hasBassRange) {
       final s = state.bassSelStart!.clamp(0, n - 1);
       final e = state.bassSelEnd!.clamp(s, n - 1);
@@ -415,6 +422,16 @@ class _AnnotationStripState extends State<AnnotationStrip> {
         ),
       ));
     }
+    // Maniglie ai bordi dell'intervallo: trascina per stirare la selezione
+    // (o l'appunto selezionato) senza sovrapporsi ai vicini.
+    if (state.bassMode && state.hasBassRange) {
+      final s = state.bassSelStart!.clamp(0, n - 1);
+      final e = state.bassSelEnd!.clamp(s, n - 1);
+      final left = xs[s];
+      final right = xs[e] + widths[e];
+      children.add(_edgeHandle(x: left, leftEdge: true));
+      children.add(_edgeHandle(x: right, leftEdge: false));
+    }
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(
         dragDevices: PointerDeviceKind.values.toSet(),
@@ -432,18 +449,59 @@ class _AnnotationStripState extends State<AnnotationStrip> {
     );
   }
 
+  /// Maniglia di stretch al bordo dell'intervallo selezionato.
+  Widget _edgeHandle({required double x, required bool leftEdge}) {
+    return Positioned(
+      left: x - 10,
+      top: 0,
+      width: 20,
+      height: 40,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: (_) {
+          final n = _xs.length;
+          if (n == 0 || !state.hasBassRange) return;
+          final s = state.bassSelStart!.clamp(0, n - 1);
+          final e = state.bassSelEnd!.clamp(s, n - 1);
+          // Parte dal centro del chip al bordo: la soglia di aggancio
+          // all'indice successivo scatta a metà chip.
+          _dragX = leftEdge ? _xs[s] + _ws[s] / 2 : _xs[e] + _ws[e] / 2;
+        },
+        onHorizontalDragUpdate: (d) {
+          if (_xs.isEmpty) return;
+          _dragX += d.delta.dx;
+          state.setBassRangeEdge(leftEdge: leftEdge, index: _indexAtX(_dragX));
+        },
+        child: Center(
+          child: Container(
+            width: 5,
+            height: 26,
+            decoration: BoxDecoration(
+              color: Palette.bassRed,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  int _indexAtX(double x) {
+    for (var i = 0; i < _xs.length; i++) {
+      if (x < _xs[i] + _ws[i] + _gap / 2) return i;
+    }
+    return _xs.length - 1;
+  }
+
   Widget _bassChip(int j, {bool selected = false}) {
     final entry = state.bassSeq[j];
-    final text = entry.basses
-        .map((c) => bassLabel(c, italian: state.italian))
-        .join(' ');
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
         state.selectBassEntry(j);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
           color: selected
               ? Palette.bassRedDim.withValues(alpha: 0.55)
@@ -456,9 +514,39 @@ class _AnnotationStripState extends State<AnnotationStrip> {
             width: selected ? 2 : 1,
           ),
         ),
-        child: Text(text,
-            style: mono(
-                size: 13, weight: FontWeight.w700, color: Palette.bassRed)),
+        // Ogni bottone del giro è toccabile: fuoco sul singolo basso
+        // (⌫ cancella solo quello).
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var k = 0; k < entry.basses.length; k++)
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  state.focusBassInEntry(j, k);
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  decoration: (selected && state.bassFocusIdx == k)
+                      ? BoxDecoration(
+                          color: Palette.bassRed.withValues(alpha: 0.30),
+                          borderRadius: BorderRadius.circular(4),
+                        )
+                      : null,
+                  child: Text(
+                    bassLabel(entry.basses[k], italian: state.italian),
+                    style: mono(
+                        size: 13,
+                        weight: FontWeight.w700,
+                        color: Palette.bassRed),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

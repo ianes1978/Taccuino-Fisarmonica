@@ -29,6 +29,10 @@ class AppState extends ChangeNotifier {
 
   bool get hasBassRange => bassSelStart != null && bassSelEnd != null;
 
+  /// Indice del bottone a fuoco dentro l'appunto selezionato (per cancellare
+  /// un solo basso del giro); null = ultimo.
+  int? bassFocusIdx;
+
   /// Musiche salvate con nome.
   final List<SavedSong> songs = [];
 
@@ -344,22 +348,78 @@ class AppState extends ChangeNotifier {
     _commit();
   }
 
+  /// Limiti (indici inclusivi) entro cui può stare un intervallo che
+  /// contiene [s..e] senza sovrapporsi agli altri appunti; `exclude` è
+  /// l'appunto che si sta ridimensionando.
+  (int, int) _bassRangeBounds(int s, int e, Entry? exclude) {
+    var lo = 0, hi = sequence.length - 1;
+    for (final b in bassSeq) {
+      if (identical(b, exclude)) continue;
+      if (b.anchorEnd <= s && b.anchorEnd > lo) lo = b.anchorEnd;
+      if (b.anchorStart > e && b.anchorStart - 1 < hi) hi = b.anchorStart - 1;
+    }
+    return (lo, hi);
+  }
+
   /// Tocco su una voce della melodia in modalità bassi: sceglie l'intervallo
   /// a cui ancorare l'appunto. Primo tocco = inizio; secondo tocco su
-  /// un'altra voce = estende l'intervallo; un tocco successivo riparte.
+  /// un'altra voce = estende l'intervallo (senza invadere gli altri appunti);
+  /// un tocco successivo riparte. Un tocco su una voce già coperta
+  /// seleziona quell'appunto.
   void tapMelodyForBassRange(int i) {
     if (i < 0 || i >= sequence.length) return;
+    final covered = bassSeq
+        .indexWhere((b) => i >= b.anchorStart && i < b.anchorEnd);
+    if (covered >= 0) {
+      selectBassEntry(covered);
+      return;
+    }
     selectedBass = null; // nuova selezione = nuovo appunto
+    bassFocusIdx = null;
     final s = bassSelStart, e = bassSelEnd;
-    if (s != null && s == e && s != i) {
-      bassSelStart = s < i ? s : i;
-      bassSelEnd = s < i ? i : s;
+    if (s != null && s == e && s != i && s < sequence.length) {
+      final (lo, hi) = _bassRangeBounds(s, s, null);
+      final j = i.clamp(lo, hi);
+      bassSelStart = j < s ? j : s;
+      bassSelEnd = j < s ? s : j;
     } else {
       bassSelStart = i;
       bassSelEnd = i;
     }
     _playEntrySound(sequence[i]);
     notifyListeners();
+  }
+
+  /// Ridimensiona l'intervallo trascinando un bordo fino all'indice dato.
+  /// Se c'è un appunto selezionato, ridimensiona la sua ancora; altrimenti la
+  /// selezione in corso. Mai oltre gli appunti vicini.
+  void setBassRangeEdge({required bool leftEdge, required int index}) {
+    if (sequence.isEmpty || !hasBassRange) return;
+    var s = bassSelStart!.clamp(0, sequence.length - 1);
+    var e = bassSelEnd!.clamp(s, sequence.length - 1);
+    final sel = selectedBass;
+    final selEntry = (sel != null && sel >= 0 && sel < bassSeq.length)
+        ? bassSeq[sel]
+        : null;
+    final (lo, hi) = _bassRangeBounds(s, e, selEntry);
+    final i = index.clamp(0, sequence.length - 1);
+    if (leftEdge) {
+      s = i.clamp(lo, e);
+    } else {
+      e = i.clamp(s, hi);
+    }
+    if (s == bassSelStart && e == bassSelEnd) return;
+    bassSelStart = s;
+    bassSelEnd = e;
+    if (selEntry != null) {
+      selEntry.anchorStart = s;
+      selEntry.anchorSpan = e - s + 1;
+      bassSeq.sort((a, b) => a.anchorStart.compareTo(b.anchorStart));
+      selectedBass = bassSeq.indexOf(selEntry);
+      _commit();
+    } else {
+      notifyListeners();
+    }
   }
 
   /// Tocco su un bottone della bottoniera: suona e — se c'è un appunto
@@ -371,6 +431,7 @@ class AppState extends ChangeNotifier {
     if (sel != null && sel >= 0 && sel < bassSeq.length) {
       // Appunto selezionato: il bottone si accoda al giro.
       bassSeq[sel].addBass(code);
+      bassFocusIdx = null;
       _commit();
       return;
     }
@@ -388,18 +449,28 @@ class AppState extends ChangeNotifier {
       bassSeq[existing].addBass(code);
       selectedBass = existing;
     } else {
+      // Mai sovrapposto a un altro appunto (la selezione è già vincolata;
+      // questa è una rete di sicurezza).
+      final overlaps = bassSeq
+          .any((b) => start < b.anchorEnd && b.anchorStart < start + span);
+      if (overlaps) {
+        notifyListeners();
+        return;
+      }
       final e = Entry.bass([code], anchorStart: start, anchorSpan: span);
       var at = bassSeq.indexWhere((b) => b.anchorStart > start);
       if (at < 0) at = bassSeq.length;
       bassSeq.insert(at, e);
       selectedBass = at;
     }
+    bassFocusIdx = null;
     _commit();
   }
 
   void selectBassEntry(int index) {
     if (index < 0 || index >= bassSeq.length) return;
     selectedBass = index;
+    bassFocusIdx = null;
     // Mostra sull'annotazione l'intervallo coperto dall'appunto.
     final e = bassSeq[index];
     if (sequence.isNotEmpty) {
@@ -407,6 +478,22 @@ class AppState extends ChangeNotifier {
       bassSelEnd = (e.anchorEnd - 1).clamp(0, sequence.length - 1);
     }
     _playEntrySound(e);
+    notifyListeners();
+  }
+
+  /// Mette a fuoco un singolo bottone dentro un giro (per cancellare solo
+  /// quello) e lo suona.
+  void focusBassInEntry(int index, int k) {
+    if (index < 0 || index >= bassSeq.length) return;
+    final e = bassSeq[index];
+    if (k < 0 || k >= e.basses.length) return;
+    selectedBass = index;
+    bassFocusIdx = k;
+    if (sequence.isNotEmpty) {
+      bassSelStart = e.anchorStart.clamp(0, sequence.length - 1);
+      bassSelEnd = (e.anchorEnd - 1).clamp(0, sequence.length - 1);
+    }
+    _playBassCode(e.basses[k]);
     notifyListeners();
   }
 
@@ -572,18 +659,25 @@ class AppState extends ChangeNotifier {
     _commit();
   }
 
-  /// Cancella l'appunto di bassi: giro -> toglie l'ultimo bottone;
-  /// singolo -> rimuove l'appunto.
+  /// Cancella l'appunto di bassi: giro -> toglie il bottone a fuoco
+  /// (o l'ultimo); singolo -> rimuove l'appunto.
   void _deleteBassTarget() {
     final i = bassTargetIndex;
     if (i == null) return;
     final e = bassSeq[i];
     if (e.basses.length > 1) {
-      e.removeLastBass();
+      final k = (selectedBass == i &&
+              bassFocusIdx != null &&
+              bassFocusIdx! < e.basses.length)
+          ? bassFocusIdx!
+          : e.basses.length - 1;
+      e.basses.removeAt(k);
+      bassFocusIdx = null;
       selectedBass = i;
     } else {
       bassSeq.removeAt(i);
       selectedBass = null;
+      bassFocusIdx = null;
     }
     _commit();
   }
@@ -661,6 +755,7 @@ class AppState extends ChangeNotifier {
     selected = null;
     selectedBass = null;
     bassSelStart = bassSelEnd = null;
+    bassFocusIdx = null;
     focusMidi = null;
     loadedName = null;
     _commit();
@@ -705,6 +800,7 @@ class AppState extends ChangeNotifier {
     selected = null;
     selectedBass = null;
     bassSelStart = bassSelEnd = null;
+    bassFocusIdx = null;
     focusMidi = null;
     loadedName = song.name;
     _commit();
