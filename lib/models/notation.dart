@@ -74,9 +74,12 @@ String bassLabel(int code, {required bool italian}) {
 String formatEntry(Entry e, {required bool italian}) {
   if (e.isText) return '«${e.label}»';
   if (e.isBass) {
-    final inside =
-        e.basses.map((c) => bassLabel(c, italian: italian)).join(' ');
-    return '⟨$inside⟩${_dashes(e.len)}';
+    final tail = _dashes(e.len);
+    final labels =
+        e.basses.map((c) => bassLabel(c, italian: italian)).toList();
+    if (labels.length == 1) return '${labels.first}$tail';
+    final inside = labels.join(' ');
+    return e.run ? '{$inside}$tail' : '[$inside]$tail';
   }
   final tail = _dashes(e.len);
   final inside =

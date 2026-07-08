@@ -14,7 +14,8 @@ class ControlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasTarget = state.targetEntry != null;
+    final hasTarget = state.controlTarget != null;
+    final fingersEnabled = !state.bassMode && state.targetEntry != null;
     return Container(
       color: Palette.bg,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -104,7 +105,7 @@ class ControlBar extends StatelessWidget {
             children: [
               // Durata: − n +
               _StepperGroup(
-                value: state.targetEntry?.len ?? 0,
+                value: state.controlTarget?.len ?? 0,
                 enabled: hasTarget,
                 min: 0,
                 max: 8,
@@ -129,7 +130,7 @@ class ControlBar extends StatelessWidget {
                   child: _SquareBtn(
                     width: 36,
                     tooltip: state.tr.fingerN(f),
-                    enabled: hasTarget,
+                    enabled: fingersEnabled,
                     active: state.currentFinger == f,
                     semi: state.currentFinger2 == f,
                     onTap: () {
@@ -152,7 +153,9 @@ class ControlBar extends StatelessWidget {
                         color: (state.currentFinger == f ||
                                 state.currentFinger2 == f)
                             ? Palette.bg
-                            : (hasTarget ? Palette.brass : Palette.brassDeep),
+                            : (fingersEnabled
+                                ? Palette.brass
+                                : Palette.brassDeep),
                       ),
                     ),
                   ),

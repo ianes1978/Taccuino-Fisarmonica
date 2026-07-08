@@ -9,6 +9,7 @@ import '../theme.dart';
 /// senza tastiera. + / − per ridimensionare il testo.
 class ScoreView extends StatefulWidget {
   final List<Entry> entries;
+  final List<Entry> bassEntries;
   final String? title;
   final bool italian;
   final Str tr;
@@ -17,6 +18,7 @@ class ScoreView extends StatefulWidget {
     required this.entries,
     required this.italian,
     required this.tr,
+    this.bassEntries = const [],
     this.title,
   });
 
@@ -81,7 +83,7 @@ class _ScoreViewState extends State<ScoreView> {
               ),
             ),
             Expanded(
-              child: widget.entries.isEmpty
+              child: widget.entries.isEmpty && widget.bassEntries.isEmpty
                   ? Center(
                       child: Text(widget.tr.noNotes,
                           style: mono(size: 15, color: Palette.muted)),
@@ -147,6 +149,34 @@ extension on _ScoreViewState {
       }
     }
     flush();
+    if (widget.bassEntries.isNotEmpty) {
+      out.add(Padding(
+        padding: EdgeInsets.only(top: _size * 0.9, bottom: _size * 0.45),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.tr.switchToBass,
+              style: display(
+                  size: _size * 0.85,
+                  weight: FontWeight.w600,
+                  color: Palette.muted),
+            ),
+            const SizedBox(height: 3),
+            Container(height: 1.5, width: 120, color: Palette.line),
+          ],
+        ),
+      ));
+      out.add(Wrap(
+        spacing: _size * 0.45,
+        runSpacing: _size * 0.55,
+        children: [
+          for (final e in widget.bassEntries)
+            _Token(
+                text: formatEntry(e, italian: widget.italian), size: _size),
+        ],
+      ));
+    }
     return out;
   }
 }

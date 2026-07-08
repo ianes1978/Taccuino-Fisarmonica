@@ -168,6 +168,8 @@ Future<void> _exportPdf(BuildContext context, AppState state) async {
   try {
     await ExportService.exportPdf(
       entries: state.sequence,
+      bassEntries: state.bassSeq,
+      bassHeading: state.tr.switchToBass,
       italian: state.italian,
       title: t.isEmpty ? null : t,
     );
@@ -420,6 +422,7 @@ void _showLoadSheet(BuildContext context, AppState state) {
                                     MaterialPageRoute(
                                       builder: (_) => ScoreView(
                                         entries: s.entries,
+                                        bassEntries: s.bassEntries,
                                         title: s.name,
                                         italian: state.italian,
                                         tr: state.tr,

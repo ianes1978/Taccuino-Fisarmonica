@@ -29,6 +29,8 @@ class ExportService {
     required List<Entry> entries,
     required bool italian,
     String? title,
+    List<Entry> bassEntries = const [],
+    String bassHeading = 'Bassi',
   }) async {
     final doc = pw.Document();
     final heading = title ?? 'Taccuino Fisarmonica';
@@ -73,6 +75,24 @@ class ExportService {
       }
     }
     flush();
+
+    if (bassEntries.isNotEmpty) {
+      body.add(pw.Padding(
+        padding: pw.EdgeInsets.only(top: body.isEmpty ? 0 : 16, bottom: 6),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(bassHeading,
+                style: pw.TextStyle(font: monoBold, fontSize: 14)),
+            pw.SizedBox(height: 2),
+            pw.Container(height: 1, width: 110, color: PdfColors.grey700),
+          ],
+        ),
+      ));
+      body.add(pw.Wrap(spacing: 6, runSpacing: 6, children: [
+        for (final e in bassEntries) token(formatEntry(e, italian: italian)),
+      ]));
+    }
 
     doc.addPage(
       pw.MultiPage(

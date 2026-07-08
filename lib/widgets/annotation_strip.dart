@@ -73,6 +73,7 @@ class AnnotationStrip extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => ScoreView(
                           entries: List.of(state.sequence),
+                          bassEntries: List.of(state.bassSeq),
                           title: state.loadedName,
                           italian: state.italian,
                           tr: state.tr,
@@ -173,7 +174,100 @@ class AnnotationStrip extends StatelessWidget {
                     },
                   ),
           ),
+          // Riga dei bassi (traccia parallela).
+          if (state.bassSeq.isNotEmpty || state.bassMode) ...[
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 34,
+              child: state.bassSeq.isEmpty
+                  ? Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('B: —',
+                          style: mono(size: 12, color: Palette.muted)),
+                    )
+                  : ReorderableListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      buildDefaultDragHandles: false,
+                      itemCount: state.bassSeq.length,
+                      onReorder: state.moveBassEntry,
+                      proxyDecorator: (child, index, animation) => Material(
+                        color: Colors.transparent,
+                        child: child,
+                      ),
+                      itemBuilder: (context, i) {
+                        final entry = state.bassSeq[i];
+                        return ReorderableDelayedDragStartListener(
+                          key: ObjectKey(entry),
+                          index: i,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: _BassChip(
+                              entry: entry,
+                              italian: state.italian,
+                              isTarget: state.bassTargetIndex == i &&
+                                  state.bassMode,
+                              isPlaying: state.playingBassIndex == i,
+                              onTap: () => state.selectBassEntry(i),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// Chip della riga bassi: singolo `Do`, accordo `[Do FaM]`, giro `{Do Sol}`.
+class _BassChip extends StatelessWidget {
+  final Entry entry;
+  final bool italian;
+  final bool isTarget;
+  final bool isPlaying;
+  final VoidCallback onTap;
+  const _BassChip({
+    required this.entry,
+    required this.italian,
+    required this.isTarget,
+    required this.isPlaying,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final labels =
+        entry.basses.map((c) => bassLabel(c, italian: italian)).toList();
+    final dashes = '-' * entry.len;
+    final String text;
+    if (labels.length == 1) {
+      text = '${labels.first}$dashes';
+    } else if (entry.run) {
+      text = '{${labels.join(' ')}}$dashes';
+    } else {
+      text = '[${labels.join(' ')}]$dashes';
+    }
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isPlaying
+              ? Palette.brass.withValues(alpha: 0.30)
+              : (isTarget
+                  ? Palette.brassDeep.withValues(alpha: 0.35)
+                  : Palette.blackMid),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(
+            color: isPlaying || isTarget ? Palette.brass : Palette.line,
+            width: isPlaying || isTarget ? 2 : 1,
+          ),
+        ),
+        child: Text(text,
+            style: mono(size: 13, weight: FontWeight.w700)),
       ),
     );
   }

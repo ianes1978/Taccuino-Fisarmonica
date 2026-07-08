@@ -15,6 +15,12 @@ class AppState extends ChangeNotifier {
 
   final List<Entry> sequence = [];
 
+  /// Traccia dei bassi (riga parallela sotto la melodia).
+  final List<Entry> bassSeq = [];
+
+  /// Indice della voce selezionata nella riga dei bassi; null = ultima.
+  int? selectedBass;
+
   /// Musiche salvate con nome.
   final List<SavedSong> songs = [];
 
@@ -65,6 +71,7 @@ class AppState extends ChangeNotifier {
   /// Riproduzione in corso.
   bool isPlaying = false;
   int? playingIndex;
+  int? playingBassIndex;
   int _playToken = 0;
 
   SharedPreferences? _prefs;
@@ -91,6 +98,16 @@ class AppState extends ChangeNotifier {
         // dati corrotti: riparti pulito
       }
     }
+    final rawBass = _prefs?.getString('bassSequence');
+    if (rawBass != null && rawBass.isNotEmpty) {
+      try {
+        final list = jsonDecode(rawBass) as List;
+        bassSeq
+          ..clear()
+          ..addAll(
+              list.map((e) => Entry.fromJson(e as Map<String, dynamic>)));
+      } catch (_) {}
+    }
     final rawSongs = _prefs?.getString('songs');
     if (rawSongs != null && rawSongs.isNotEmpty) {
       try {
@@ -112,6 +129,8 @@ class AppState extends ChangeNotifier {
   void _persist() {
     final raw = jsonEncode(sequence.map((e) => e.toJson()).toList());
     _prefs?.setString('sequence', raw);
+    _prefs?.setString(
+        'bassSequence', jsonEncode(bassSeq.map((e) => e.toJson()).toList()));
     _prefs?.setBool('italian', italian);
     _prefs?.setBool('audioOn', audioOn);
     _prefs?.setInt('ornamentSpeed', ornamentSpeed);
@@ -171,6 +190,23 @@ class AppState extends ChangeNotifier {
     final i = targetIndex;
     return i == null ? null : sequence[i];
   }
+
+  /// Bersaglio nella riga dei bassi (default = ultima voce).
+  int? get bassTargetIndex {
+    if (bassSeq.isEmpty) return null;
+    final s = selectedBass;
+    if (s != null && s >= 0 && s < bassSeq.length) return s;
+    return bassSeq.length - 1;
+  }
+
+  Entry? get bassTargetEntry {
+    final i = bassTargetIndex;
+    return i == null ? null : bassSeq[i];
+  }
+
+  /// Bersaglio dei controlli (durata/cancella): riga bassi se la bottoniera
+  /// è attiva, altrimenti la melodia.
+  Entry? get controlTarget => bassMode ? bassTargetEntry : targetEntry;
 
   /// Voce "attiva" da rispecchiare sulla tastiera: quella in riproduzione se si
   /// sta ascoltando, altrimenti la voce bersaglio (selezionata o ultima).
@@ -294,21 +330,62 @@ class AppState extends ChangeNotifier {
     _commit();
   }
 
-  /// Tocco su un bottone dei bassi: suona e accoda al giro corrente
-  /// (o ne crea uno nuovo dopo la voce selezionata).
+  /// Tocco su un bottone dei bassi (riga parallela). Come per la tastiera:
+  /// normale = nuova voce dopo la selezionata; accordo = impila (insieme);
+  /// abbellimento = accoda in sequenza veloce.
   void onBassTap(int code) {
     _playBassCode(code);
     if (practiceMode) return;
-    final i = targetIndex;
-    if (i != null && sequence[i].isBass) {
-      sequence[i].addBass(code);
-      selected = i;
+    final i = bassTargetIndex;
+    if (runMode) {
+      if (i == null) {
+        bassSeq.add(Entry.bass([code], run: true));
+        selectedBass = 0;
+      } else {
+        final t = bassSeq[i];
+        if (!t.run) t.run = true;
+        t.addBass(code);
+        selectedBass = i;
+      }
+    } else if (chordMode) {
+      if (i == null) {
+        bassSeq.add(Entry.bass([code]));
+        selectedBass = 0;
+      } else {
+        final t = bassSeq[i];
+        if (t.run) t.toBassChord();
+        if (t.containsBass(code)) {
+          if (t.removeBass(code)) {
+            bassSeq.removeAt(i);
+            selectedBass = null;
+          }
+        } else {
+          t.addBass(code);
+          t.toBassChord();
+        }
+      }
     } else {
-      final at = i == null ? sequence.length : i + 1;
-      sequence.insert(at, Entry.bass([code]));
-      selected = at;
+      final at = i == null ? bassSeq.length : i + 1;
+      bassSeq.insert(at, Entry.bass([code]));
+      selectedBass = at;
     }
-    focusMidi = null;
+    _commit();
+  }
+
+  void selectBassEntry(int index) {
+    selectedBass = index;
+    _playEntrySound(bassSeq[index]);
+    notifyListeners();
+  }
+
+  /// Sposta una voce nella riga dei bassi (drag & drop).
+  void moveBassEntry(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= bassSeq.length) return;
+    if (newIndex > oldIndex) newIndex -= 1;
+    newIndex = newIndex.clamp(0, bassSeq.length - 1);
+    final e = bassSeq.removeAt(oldIndex);
+    bassSeq.insert(newIndex, e);
+    selectedBass = newIndex;
     _commit();
   }
 
@@ -345,7 +422,7 @@ class AppState extends ChangeNotifier {
   // --- Durata / cancellazione / selezione ----------------------------------
 
   void incLen() {
-    final e = targetEntry;
+    final e = controlTarget;
     if (e != null && !e.isText && e.len < kMaxLen) {
       e.len++;
       _commit();
@@ -353,7 +430,7 @@ class AppState extends ChangeNotifier {
   }
 
   void decLen() {
-    final e = targetEntry;
+    final e = controlTarget;
     if (e != null && !e.isText && e.len > 0) {
       e.len--;
       _commit();
@@ -390,6 +467,10 @@ class AppState extends ChangeNotifier {
   }
 
   void deleteTarget() {
+    if (bassMode) {
+      _deleteBassTarget();
+      return;
+    }
     final i = targetIndex;
     if (i == null) return;
     final e = sequence[i];
@@ -428,6 +509,21 @@ class AppState extends ChangeNotifier {
     _commit();
   }
 
+  /// Cancella nella riga dei bassi: multi -> toglie l'ultimo bottone;
+  /// singolo -> rimuove la voce.
+  void _deleteBassTarget() {
+    final i = bassTargetIndex;
+    if (i == null) return;
+    final e = bassSeq[i];
+    if (e.basses.length > 1) {
+      e.removeLastBass();
+    } else {
+      bassSeq.removeAt(i);
+      selectedBass = null;
+    }
+    _commit();
+  }
+
   /// Sposta una voce (drag & drop nell'annotazione).
   void moveEntry(int oldIndex, int newIndex) {
     if (oldIndex < 0 || oldIndex >= sequence.length) return;
@@ -461,9 +557,15 @@ class AppState extends ChangeNotifier {
   Future<void> _playEntrySound(Entry e) async {
     if (!audioOn) return;
     if (e.isBass) {
-      for (final c in e.basses) {
-        _playBassCode(c);
-        await Future.delayed(Duration(milliseconds: _scaledMs(280)));
+      if (e.run) {
+        for (final c in e.basses) {
+          _playBassCode(c);
+          await Future.delayed(Duration(milliseconds: _scaledMs(240)));
+        }
+      } else {
+        for (final c in e.basses) {
+          _playBassCode(c);
+        }
       }
       return;
     }
@@ -482,7 +584,9 @@ class AppState extends ChangeNotifier {
   void clearAll() {
     stopPlayback();
     sequence.clear();
+    bassSeq.clear();
     selected = null;
+    selectedBass = null;
     focusMidi = null;
     loadedName = null;
     _commit();
@@ -493,11 +597,13 @@ class AppState extends ChangeNotifier {
   /// Salva la sequenza corrente con un nome (sovrascrive se il nome esiste).
   void saveCurrentAs(String name, {String? isoNow}) {
     final trimmed = name.trim();
-    if (trimmed.isEmpty || sequence.isEmpty) return;
+    if (trimmed.isEmpty || (sequence.isEmpty && bassSeq.isEmpty)) return;
     final copy = sequence.map((e) => Entry.fromJson(e.toJson())).toList();
+    final bassCopy = bassSeq.map((e) => Entry.fromJson(e.toJson())).toList();
     final song = SavedSong(
       name: trimmed,
       entries: copy,
+      bassEntries: bassCopy,
       savedAt: isoNow ?? DateTime.now().toIso8601String(),
     );
     final idx =
@@ -518,7 +624,11 @@ class AppState extends ChangeNotifier {
     sequence
       ..clear()
       ..addAll(song.cloneEntries());
+    bassSeq
+      ..clear()
+      ..addAll(song.cloneBassEntries());
     selected = null;
+    selectedBass = null;
     focusMidi = null;
     loadedName = song.name;
     _commit();
@@ -541,6 +651,7 @@ class AppState extends ChangeNotifier {
     songs.add(SavedSong(
       name: name,
       entries: song.entries,
+      bassEntries: song.bassEntries,
       savedAt: song.savedAt.isEmpty ? '' : song.savedAt,
     ));
     _persistSongs();
@@ -555,8 +666,11 @@ class AppState extends ChangeNotifier {
     final idx = songs.indexWhere((s) => s.name == oldName);
     if (idx < 0) return;
     final old = songs[idx];
-    songs[idx] =
-        SavedSong(name: trimmed, entries: old.entries, savedAt: old.savedAt);
+    songs[idx] = SavedSong(
+        name: trimmed,
+        entries: old.entries,
+        bassEntries: old.bassEntries,
+        savedAt: old.savedAt);
     if (loadedName == oldName) loadedName = trimmed;
     _persistSongs();
     notifyListeners();
@@ -619,11 +733,26 @@ class AppState extends ChangeNotifier {
   // --- Riproduzione --------------------------------------------------------
 
   Future<void> playSequence() async {
-    if (isPlaying || sequence.isEmpty) return;
+    if (isPlaying || (sequence.isEmpty && bassSeq.isEmpty)) return;
     isPlaying = true;
     _playToken++;
     final token = _playToken;
     notifyListeners();
+    // Le due righe (melodia e bassi) suonano in parallelo, ciascuna col
+    // proprio passo; lo Stop le ferma entrambe.
+    await Future.wait([
+      _playMelodyTrack(token),
+      _playBassTrack(token),
+    ]);
+    if (token == _playToken) {
+      isPlaying = false;
+      playingIndex = null;
+      playingBassIndex = null;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _playMelodyTrack(int token) async {
     for (var i = 0; i < sequence.length; i++) {
       if (token != _playToken) break;
       playingIndex = i;
@@ -635,7 +764,7 @@ class AppState extends ChangeNotifier {
         continue;
       }
       if (e.isBass) {
-        // Giro di bassi: i bottoni in sequenza ritmica.
+        // Voce bassi rimasta inline (retrocompatibilità).
         for (final c in e.basses) {
           if (token != _playToken) break;
           _playBassCode(c);
@@ -661,10 +790,31 @@ class AppState extends ChangeNotifier {
             Duration(milliseconds: _scaledMs(280 + e.len * 170)));
       }
     }
-    if (token == _playToken) {
-      isPlaying = false;
-      playingIndex = null;
+  }
+
+  Future<void> _playBassTrack(int token) async {
+    for (var i = 0; i < bassSeq.length; i++) {
+      if (token != _playToken) break;
+      playingBassIndex = i;
       notifyListeners();
+      final e = bassSeq[i];
+      if (e.run) {
+        // Abbellimento di bassi: bottoni in rapida successione.
+        for (final c in e.basses) {
+          if (token != _playToken) break;
+          _playBassCode(c);
+          await Future.delayed(Duration(milliseconds: _scaledMs(ornamentGapMs)));
+        }
+        await Future.delayed(
+            Duration(milliseconds: _scaledMs(120 + e.len * 170)));
+      } else {
+        // Singolo o accordo: bottoni insieme.
+        for (final c in e.basses) {
+          _playBassCode(c);
+        }
+        await Future.delayed(
+            Duration(milliseconds: _scaledMs(280 + e.len * 170)));
+      }
     }
   }
 
@@ -672,6 +822,7 @@ class AppState extends ChangeNotifier {
     _playToken++;
     isPlaying = false;
     playingIndex = null;
+    playingBassIndex = null;
     notifyListeners();
   }
 
@@ -734,9 +885,15 @@ class AppState extends ChangeNotifier {
 
   // --- Esportazione --------------------------------------------------------
 
-  String get exportText => formatSequence(sequence, italian: italian);
+  String get exportText {
+    final mel = formatSequence(sequence, italian: italian);
+    if (bassSeq.isEmpty) return mel;
+    final bass =
+        bassSeq.map((e) => formatEntry(e, italian: italian)).join(' ');
+    return mel.isEmpty ? 'B: $bass' : '$mel\nB: $bass';
+  }
 
-  bool get isEmpty => sequence.isEmpty;
+  bool get isEmpty => sequence.isEmpty && bassSeq.isEmpty;
 
   // --- Helpers -------------------------------------------------------------
 

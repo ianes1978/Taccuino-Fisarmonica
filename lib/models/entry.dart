@@ -68,12 +68,12 @@ class Entry {
         label = text,
         basses = [];
 
-  Entry.bass(List<int> codes)
+  Entry.bass(List<int> codes, {bool run = false})
       : midis = [],
         len = 0,
         fingers = {},
         fingers2 = {},
-        run = false,
+        run = run,
         label = null,
         basses = List.of(codes);
 
@@ -83,10 +83,27 @@ class Entry {
 
   void addBass(int code) => basses.add(code);
 
+  bool containsBass(int code) => basses.contains(code);
+
+  /// Rimuove un bottone; true se la voce è rimasta vuota.
+  bool removeBass(int code) {
+    basses.remove(code);
+    return basses.isEmpty;
+  }
+
   /// Rimuove l'ultimo bottone del giro; true se il giro è rimasto vuoto.
   bool removeLastBass() {
     if (basses.isNotEmpty) basses.removeLast();
     return basses.isEmpty;
+  }
+
+  /// Converte in accordo di bassi (simultaneo): senza duplicati, ordinato.
+  void toBassChord() {
+    run = false;
+    final u = basses.toSet().toList()..sort();
+    basses
+      ..clear()
+      ..addAll(u);
   }
 
   void addNote(int midi) {
