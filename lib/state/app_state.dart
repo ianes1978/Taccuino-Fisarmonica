@@ -339,9 +339,14 @@ class AppState extends ChangeNotifier {
     final e = sequence[i];
     final m = effectiveFocusMidi;
     if (e.run && e.midis.length > 1) {
-      // Abbellimento: toglie l'ultima nota (si costruisce in ordine).
-      e.removeLast();
-      focusMidi = e.midis.last;
+      // Abbellimento: toglie la nota a fuoco (un'occorrenza, per i trilli);
+      // senza fuoco valido, l'ultima.
+      if (m != null && e.midis.contains(m)) {
+        e.removeNote(m);
+      } else {
+        e.removeLast();
+      }
+      focusMidi = e.midis.isNotEmpty ? e.midis.last : null;
     } else if (e.isChord && m != null) {
       // Accordo: cancella solo la nota a fuoco.
       e.removeNote(m);
