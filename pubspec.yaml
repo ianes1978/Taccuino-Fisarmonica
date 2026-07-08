@@ -27,11 +27,23 @@ dependencies:
 dev_dependencies:
   flutter_lints: ^4.0.0
   flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.4
 
 flutter:
   uses-material-design: true
   assets:
     - assets/icon/app_icon.png
+    - assets/splash/splash.png
+
+# Splash nativo (Android/web): fondo scuro + icona, elimina il flash bianco.
+# L'artwork a tutto schermo è mostrato subito dopo dal BootSplash in-app.
+flutter_native_splash:
+  color: "#0B0805"
+  image: assets/icon/app_icon.png
+  android_gravity: center
+  android_12:
+    color: "#0B0805"
+    image: assets/icon/app_icon.png
 
 # Icona app (Android + Web), generata in CI da assets/icon/app_icon.png.
 flutter_launcher_icons:

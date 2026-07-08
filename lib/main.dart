@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 import 'state/app_state.dart';
 import 'theme.dart';
+import 'widgets/boot_splash.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +22,7 @@ class TaccuinoApp extends StatelessWidget {
       title: 'Taccuino Fisarmonica',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
-      home: HomeScreen(state: state),
+      home: BootSplash(child: HomeScreen(state: state)),
     );
   }
 }

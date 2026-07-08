@@ -42,6 +42,9 @@ jobs:
       - name: Generate app icons
         run: dart run flutter_launcher_icons
 
+      - name: Generate native splash
+        run: dart run flutter_native_splash:create
+
       - name: Build web
         # base-href deve combaciare col nome del repo per GitHub Pages.
         run: |
@@ -102,6 +105,9 @@ jobs:
 
       - name: Generate app icons
         run: dart run flutter_launcher_icons
+
+      - name: Generate native splash
+        run: dart run flutter_native_splash:create
 
       - name: Build release APK
         run: flutter build apk --release
