@@ -190,6 +190,14 @@ class AppState extends ChangeNotifier {
       return;
     }
     final t = sequence[i];
+    // Un'etichetta di testo non può ospitare note: crea un abbellimento dopo.
+    if (t.isText) {
+      sequence.insert(i + 1, Entry.run([midi]));
+      selected = i + 1;
+      focusMidi = midi;
+      _commit();
+      return;
+    }
     if (!t.run) t.toRun();
     t.addNote(midi);
     focusMidi = midi;
@@ -217,6 +225,14 @@ class AppState extends ChangeNotifier {
       return;
     }
     final entry = sequence[i];
+    // Un'etichetta di testo non può ospitare note: crea una voce nuova dopo.
+    if (entry.isText) {
+      sequence.insert(i + 1, Entry.single(midi));
+      selected = i + 1;
+      focusMidi = midi;
+      _commit();
+      return;
+    }
     // In modalità accordo un abbellimento bersaglio viene convertito in accordo.
     if (entry.run) entry.toChord();
     if (entry.midis.contains(midi)) {
@@ -237,7 +253,7 @@ class AppState extends ChangeNotifier {
 
   void incLen() {
     final e = targetEntry;
-    if (e != null && e.len < kMaxLen) {
+    if (e != null && !e.isText && e.len < kMaxLen) {
       e.len++;
       _commit();
     }
@@ -245,10 +261,39 @@ class AppState extends ChangeNotifier {
 
   void decLen() {
     final e = targetEntry;
-    if (e != null && e.len > 0) {
+    if (e != null && !e.isText && e.len > 0) {
       e.len--;
       _commit();
     }
+  }
+
+  // --- Voci di testo (sottotitoli di sezione) ------------------------------
+
+  /// Inserisce un'etichetta di testo dopo la voce selezionata.
+  void addTextEntry(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return;
+    final i = targetIndex;
+    final insertAt = i == null ? sequence.length : i + 1;
+    sequence.insert(insertAt, Entry.text(t));
+    selected = insertAt;
+    focusMidi = null;
+    _commit();
+  }
+
+  /// Modifica un'etichetta; testo vuoto = eliminala.
+  void editTextEntry(int index, String text) {
+    if (index < 0 || index >= sequence.length) return;
+    final e = sequence[index];
+    if (!e.isText) return;
+    final t = text.trim();
+    if (t.isEmpty) {
+      sequence.removeAt(index);
+      selected = null;
+    } else {
+      e.label = t;
+    }
+    _commit();
   }
 
   void deleteTarget() {
@@ -449,6 +494,11 @@ class AppState extends ChangeNotifier {
       playingIndex = i;
       notifyListeners();
       final e = sequence[i];
+      if (e.isText) {
+        // Etichetta di sezione: breve pausa, nessun suono.
+        await Future.delayed(const Duration(milliseconds: 200));
+        continue;
+      }
       if (e.run) {
         // Abbellimento: note in rapida successione.
         for (final m in e.midis) {

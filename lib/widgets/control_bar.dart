@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../state/app_state.dart';
 import '../theme.dart';
+import 'text_prompt.dart';
 
 /// Barra controlli compatta su due righe:
 ///  1) modalità (accordo, abbellimento, prova) + cancella
@@ -50,6 +51,26 @@ class ControlBar extends StatelessWidget {
                 child: Icon(Icons.local_florist,
                     size: 20,
                     color: state.runMode ? Palette.bg : Palette.brass),
+              ),
+              const SizedBox(width: 6),
+              _SquareBtn(
+                width: 52,
+                tooltip: 'Aggiungi testo (sottotitolo di sezione)',
+                enabled: true,
+                onTap: () async {
+                  HapticFeedback.selectionClick();
+                  final text = await promptText(
+                    context,
+                    heading: 'Testo di sezione',
+                    hint: 'Es. Ritornello, 2ª volta…',
+                    confirm: 'Aggiungi',
+                  );
+                  if (text != null && text.trim().isNotEmpty) {
+                    state.addTextEntry(text);
+                  }
+                },
+                child: const Icon(Icons.text_fields,
+                    size: 20, color: Palette.brass),
               ),
               const SizedBox(width: 6),
               Expanded(

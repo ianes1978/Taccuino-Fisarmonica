@@ -85,17 +85,9 @@ class _ScoreViewState extends State<ScoreView> {
                     )
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(18),
-                      child: Wrap(
-                        spacing: _size * 0.45,
-                        runSpacing: _size * 0.55,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          for (final e in widget.entries)
-                            _Token(
-                              text: formatEntry(e, italian: widget.italian),
-                              size: _size,
-                            ),
-                        ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _buildSections(),
                       ),
                     ),
             ),
@@ -103,6 +95,56 @@ class _ScoreViewState extends State<ScoreView> {
         ),
       ),
     );
+  }
+}
+
+extension on _ScoreViewState {
+  /// Le etichette di testo diventano sottotitoli che dividono in sezioni;
+  /// tra un sottotitolo e l'altro, le note scorrono in un Wrap.
+  List<Widget> _buildSections() {
+    final out = <Widget>[];
+    var tokens = <Widget>[];
+
+    void flush() {
+      if (tokens.isEmpty) return;
+      out.add(Wrap(
+        spacing: _size * 0.45,
+        runSpacing: _size * 0.55,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: tokens,
+      ));
+      tokens = <Widget>[];
+    }
+
+    for (final e in widget.entries) {
+      if (e.isText) {
+        flush();
+        out.add(Padding(
+          padding: EdgeInsets.only(
+              top: out.isEmpty ? 0 : _size * 0.8, bottom: _size * 0.45),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                e.label ?? '',
+                style: display(
+                    size: _size * 0.95,
+                    weight: FontWeight.w600,
+                    color: Palette.brass),
+              ),
+              const SizedBox(height: 3),
+              Container(height: 1.5, width: 120, color: Palette.brassDim),
+            ],
+          ),
+        ));
+      } else {
+        tokens.add(
+          _Token(text: formatEntry(e, italian: widget.italian), size: _size),
+        );
+      }
+    }
+    flush();
+    return out;
   }
 }
 

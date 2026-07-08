@@ -32,9 +32,47 @@ class ExportService {
   }) async {
     final doc = pw.Document();
     final heading = title ?? 'Taccuino Fisarmonica';
-    final tokens = entries.map((e) => formatEntry(e, italian: italian)).toList();
     final mono = pw.Font.courier();
     final monoBold = pw.Font.courierBold();
+
+    pw.Widget token(String t) => pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey600, width: 0.5),
+            borderRadius: pw.BorderRadius.circular(3),
+          ),
+          child: pw.Text(t, style: pw.TextStyle(font: mono, fontSize: 12)),
+        );
+
+    // Le etichette di testo diventano sottotitoli che dividono in sezioni.
+    final body = <pw.Widget>[];
+    var tokens = <pw.Widget>[];
+    void flush() {
+      if (tokens.isEmpty) return;
+      body.add(pw.Wrap(spacing: 6, runSpacing: 6, children: tokens));
+      tokens = <pw.Widget>[];
+    }
+
+    for (final e in entries) {
+      if (e.isText) {
+        flush();
+        body.add(pw.Padding(
+          padding: pw.EdgeInsets.only(top: body.isEmpty ? 0 : 14, bottom: 6),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(e.label ?? '',
+                  style: pw.TextStyle(font: monoBold, fontSize: 14)),
+              pw.SizedBox(height: 2),
+              pw.Container(height: 1, width: 110, color: PdfColors.grey700),
+            ],
+          ),
+        ));
+      } else {
+        tokens.add(token(formatEntry(e, italian: italian)));
+      }
+    }
+    flush();
 
     doc.addPage(
       pw.MultiPage(
@@ -44,24 +82,7 @@ class ExportService {
           pw.Text(heading,
               style: pw.TextStyle(font: monoBold, fontSize: 20)),
           pw.SizedBox(height: 16),
-          pw.Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final t in tokens)
-                pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 3),
-                  decoration: pw.BoxDecoration(
-                    border:
-                        pw.Border.all(color: PdfColors.grey600, width: 0.5),
-                    borderRadius: pw.BorderRadius.circular(3),
-                  ),
-                  child: pw.Text(t,
-                      style: pw.TextStyle(font: mono, fontSize: 12)),
-                ),
-            ],
-          ),
+          ...body,
         ],
       ),
     );

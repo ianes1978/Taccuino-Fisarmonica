@@ -7,6 +7,7 @@ import '../models/notation.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import 'score_view.dart';
+import 'text_prompt.dart';
 
 /// Striscia dell'annotazione: chip inline per note singole, chip con note
 /// incolonnate per gli accordi. Header con play, copia e svuota.
@@ -133,7 +134,24 @@ class AnnotationStrip extends StatelessWidget {
                             focusMidi: state.targetIndex == i
                                 ? state.effectiveFocusMidi
                                 : null,
-                            onTapChip: () => state.selectEntry(i),
+                            onTapChip: () async {
+                              if (entry.isText) {
+                                // Tap sul testo: selezione + modifica.
+                                state.selectEntry(i);
+                                final text = await promptText(
+                                  context,
+                                  heading: 'Modifica testo',
+                                  hint: 'Testo (vuoto = elimina)',
+                                  initial: entry.label ?? '',
+                                  confirm: 'Salva',
+                                );
+                                if (text != null) {
+                                  state.editTextEntry(i, text);
+                                }
+                              } else {
+                                state.selectEntry(i);
+                              }
+                            },
                             onTapNote: (m) => state.focusNoteInEntry(i, m),
                           ),
                         ),
@@ -235,7 +253,26 @@ class _EntryChipState extends State<_EntryChip> {
   Widget build(BuildContext context) {
     final dashes = '-' * entry.len;
     final Widget content;
-    if (entry.run) {
+    if (entry.isText) {
+      // Etichetta di sezione: stile distinto (Fraunces, icona testo).
+      content = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.text_fields, size: 14, color: Palette.muted),
+          const SizedBox(width: 5),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 150),
+            child: Text(
+              entry.label ?? '',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: display(
+                  size: 14, weight: FontWeight.w600, color: Palette.brass),
+            ),
+          ),
+        ],
+      );
+    } else if (entry.run) {
       // Abbellimento: note in fila orizzontale (nell'ordine), fra graffe.
       content = Row(
         mainAxisSize: MainAxisSize.min,

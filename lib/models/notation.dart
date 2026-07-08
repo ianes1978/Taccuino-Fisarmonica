@@ -47,6 +47,7 @@ String _noteWithFinger(Entry e, int midi, {required bool italian}) {
 ///  - accordo (verticale): `[Do4(1) Mi4(3) Sol4(5)]--`
 ///  - abbellimento (orizzontale): `{Do4 Re4 Mi4}--`
 String formatEntry(Entry e, {required bool italian}) {
+  if (e.isText) return '«${e.label}»';
   final tail = _dashes(e.len);
   final inside =
       e.midis.map((m) => _noteWithFinger(e, m, italian: italian)).join(' ');

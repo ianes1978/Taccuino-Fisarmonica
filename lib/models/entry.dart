@@ -17,11 +17,15 @@ class Entry {
   /// true = abbellimento (passaggio veloce orizzontale).
   bool run;
 
+  /// Etichetta di testo (voce senza note): sottotitolo di sezione.
+  String? label;
+
   Entry({
     required this.midis,
     this.len = 0,
     Map<int, int>? fingers,
     this.run = false,
+    this.label,
   }) : fingers = fingers ?? {} {
     if (!run) midis.sort();
   }
@@ -30,13 +34,24 @@ class Entry {
       : midis = [midi],
         len = len,
         fingers = {},
-        run = false;
+        run = false,
+        label = null;
 
   Entry.run(List<int> midis, {int len = 0})
       : midis = List.of(midis),
         len = len,
         fingers = {},
-        run = true;
+        run = true,
+        label = null;
+
+  Entry.text(String text)
+      : midis = [],
+        len = 0,
+        fingers = {},
+        run = false,
+        label = text;
+
+  bool get isText => label != null;
 
   void addNote(int midi) {
     if (run) {
@@ -94,12 +109,16 @@ class Entry {
         'l': len,
         'f': fingers.map((k, v) => MapEntry(k.toString(), v)),
         if (run) 'r': true,
+        if (label != null) 't': label,
       };
 
   factory Entry.fromJson(Map<String, dynamic> j) => Entry(
-        midis: (j['m'] as List).map((e) => e as int).toList(),
-        len: j['l'] as int,
+        midis: ((j['m'] as List?) ?? const [])
+            .map((e) => e as int)
+            .toList(),
+        len: (j['l'] as int?) ?? 0,
         run: j['r'] == true,
+        label: j['t'] as String?,
         fingers: (j['f'] as Map?)?.map(
               (k, v) => MapEntry(int.parse(k as String), v as int),
             ) ??
