@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -257,44 +258,64 @@ class _EntryChip extends StatelessWidget {
       );
     } else {
       // Accordo: note incolonnate (acuta in alto, grave in basso), toccabili.
+      // Con più di 3 note la colonna scorre verticalmente dentro il chip,
+      // così anche le note nascoste restano selezionabili.
       final descending = entry.midis.reversed.toList();
+      final noteColumn = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final m in descending)
+            GestureDetector(
+              onTap: () => onTapNote(m),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 1, horizontal: 2),
+                decoration: focusMidi == m
+                    ? BoxDecoration(
+                        color: Palette.brass.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(4),
+                      )
+                    : null,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(noteLabel(m, italian: italian),
+                        style: mono(
+                            size: 13, weight: FontWeight.w700, height: 1.2)),
+                    _fingerBadge(entry.fingerOf(m)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+      final manyNotes = descending.length > 3;
       content = Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final m in descending)
-                GestureDetector(
-                  onTap: () => onTapNote(m),
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 1, horizontal: 2),
-                    decoration: focusMidi == m
-                        ? BoxDecoration(
-                            color: Palette.brass.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(4),
-                          )
-                        : null,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(noteLabel(m, italian: italian),
-                            style: mono(
-                                size: 13,
-                                weight: FontWeight.w700,
-                                height: 1.2)),
-                        _fingerBadge(entry.fingerOf(m)),
-                      ],
-                    ),
-                  ),
+          if (manyNotes)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 50, maxWidth: 96),
+              child: ScrollConfiguration(
+                // Consenti il drag anche col mouse (web/desktop).
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  dragDevices: PointerDeviceKind.values.toSet(),
+                  scrollbars: false,
                 ),
-            ],
-          ),
+                child: SingleChildScrollView(child: noteColumn),
+              ),
+            )
+          else
+            noteColumn,
+          if (manyNotes)
+            const Padding(
+              padding: EdgeInsets.only(left: 1),
+              child: Icon(Icons.unfold_more, size: 13, color: Palette.muted),
+            ),
           if (dashes.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(left: 4),
