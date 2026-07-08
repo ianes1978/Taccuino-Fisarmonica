@@ -20,38 +20,40 @@ class ControlBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Riga unica: i tre toggle si stringono per far posto a ⌫,
+          // così non vanno mai a capo nemmeno sugli schermi stretti.
           Row(
             children: [
               Expanded(
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    _ToggleChip(
-                      label: '≡ accordo',
-                      active: state.chordMode,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        state.toggleChordMode();
-                      },
-                    ),
-                    _ToggleChip(
-                      label: '↝ abbell.',
-                      active: state.runMode,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        state.toggleRunMode();
-                      },
-                    ),
-                    _ToggleChip(
-                      label: '✎ prova',
-                      active: state.practiceMode,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        state.togglePracticeMode();
-                      },
-                    ),
-                  ],
+                child: _ToggleChip(
+                  label: '≡ accordo',
+                  active: state.chordMode,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    state.toggleChordMode();
+                  },
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _ToggleChip(
+                  label: '↝ abbell.',
+                  active: state.runMode,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    state.toggleRunMode();
+                  },
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _ToggleChip(
+                  label: '✎ prova',
+                  active: state.practiceMode,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    state.togglePracticeMode();
+                  },
                 ),
               ),
               const SizedBox(width: 6),
@@ -160,7 +162,7 @@ class _ToggleChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(9),
         child: Container(
           constraints: const BoxConstraints(minHeight: 40),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: active ? Palette.brass : Palette.panel,
@@ -168,12 +170,17 @@ class _ToggleChip extends StatelessWidget {
             border: Border.all(
                 color: active ? Palette.brass : Palette.brassDim, width: 1.5),
           ),
-          child: Text(
-            label,
-            style: mono(
-              size: 12,
-              weight: FontWeight.w700,
-              color: active ? Palette.bg : Palette.brass,
+          // Il testo si riduce se lo spazio non basta (schermi stretti).
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: mono(
+                size: 12,
+                weight: FontWeight.w700,
+                color: active ? Palette.bg : Palette.brass,
+              ),
             ),
           ),
         ),
