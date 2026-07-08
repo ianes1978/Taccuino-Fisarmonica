@@ -74,8 +74,8 @@ class Str {
   final String ornamentSpeedLabel;
   final String switchToBass;
   final String switchToKeyboard;
-  final String bassSustain;
-  final String bassRest;
+  final String bassHint;
+  final String bassNoteHint;
 
   const Str({
     required this.annotation,
@@ -149,8 +149,8 @@ class Str {
     required this.ornamentSpeedLabel,
     required this.switchToBass,
     required this.switchToKeyboard,
-    required this.bassSustain,
-    required this.bassRest,
+    required this.bassHint,
+    required this.bassNoteHint,
   });
 }
 
@@ -230,8 +230,8 @@ final Str strIt = Str(
   ornamentSpeedLabel: 'Velocità abbellimenti',
   switchToBass: 'Bassi',
   switchToKeyboard: 'Tastiera',
-  bassSustain: 'Basso continuo',
-  bassRest: 'Pausa (silenzio)',
+  bassHint: 'Tocca le note sopra (2 tocchi = intervallo), poi i bassi',
+  bassNoteHint: 'Gli appunti di bassi appaiono qui, sotto le note coperte',
 );
 
 final Str strEn = Str(
@@ -306,8 +306,8 @@ final Str strEn = Str(
   ornamentSpeedLabel: 'Ornament speed',
   switchToBass: 'Bass',
   switchToKeyboard: 'Keyboard',
-  bassSustain: 'Sustained bass',
-  bassRest: 'Rest (silence)',
+  bassHint: 'Tap the notes above (2 taps = range), then the basses',
+  bassNoteHint: 'Bass notes appear here, under the covered notes',
 );
 
 final Str strPt = Str(
@@ -382,8 +382,8 @@ final Str strPt = Str(
   ornamentSpeedLabel: 'Velocidade dos ornamentos',
   switchToBass: 'Baixos',
   switchToKeyboard: 'Teclado',
-  bassSustain: 'Baixo contínuo',
-  bassRest: 'Pausa (silêncio)',
+  bassHint: 'Toque as notas acima (2 toques = intervalo), depois os baixos',
+  bassNoteHint: 'As anotações de baixos aparecem aqui, sob as notas cobertas',
 );
 
 /// Risolve la lingua: 'system' usa la lingua del dispositivo; it/en/pt

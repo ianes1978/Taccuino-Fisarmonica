@@ -1,8 +1,12 @@
-/// Una voce della sequenza. Tre tipi:
+/// Una voce della sequenza. Tipi:
 ///  - nota singola / accordo: note simultanee, ordinate dal grave all'acuto,
 ///    senza duplicati (`run` = false);
 ///  - abbellimento: note in sequenza rapida, NELL'ORDINE suonato, duplicati
-///    ammessi (per i trilli) (`run` = true).
+///    ammessi (per i trilli) (`run` = true);
+///  - testo: sottotitolo di sezione (`label`);
+///  - appunto di bassi: bottoni Stradella ancorati a un intervallo di voci
+///    della melodia (`basses` + `anchorStart`/`anchorSpan`). È un promemoria:
+///    non viene riprodotto dal Play.
 class Entry {
   /// MIDI notes. Accordo: ordinati crescente. Abbellimento: ordine di
   /// esecuzione (non ordinati, duplicati ammessi).
@@ -25,12 +29,13 @@ class Entry {
 
   /// Giro di bassi: bottoni Stradella in sequenza. Ogni codice è
   /// tipo*12 + nota (tipo: 0=contrabbasso, 1=basso, 2=Magg, 3=min, 4=7ª,
-  /// 5=dim); -1 = pausa (silenzio).
+  /// 5=dim).
   List<int> basses;
 
-  /// Basso continuo: il suono si sostiene per tutta la durata della voce
-  /// (ribattuto nel Play) fino all'attacco del chip successivo.
-  bool sustain;
+  /// Ancora dell'appunto di bassi: indice della prima voce della melodia
+  /// coperta e numero di voci coperte (>= 1).
+  int anchorStart;
+  int anchorSpan;
 
   Entry({
     required this.midis,
@@ -40,7 +45,8 @@ class Entry {
     this.run = false,
     this.label,
     List<int>? basses,
-    this.sustain = false,
+    this.anchorStart = 0,
+    this.anchorSpan = 1,
   })  : fingers = fingers ?? {},
         fingers2 = fingers2 ?? {},
         basses = basses ?? [] {
@@ -55,7 +61,8 @@ class Entry {
         run = false,
         label = null,
         basses = [],
-        sustain = false;
+        anchorStart = 0,
+        anchorSpan = 1;
 
   Entry.run(List<int> midis, {int len = 0})
       : midis = List.of(midis),
@@ -65,7 +72,8 @@ class Entry {
         run = true,
         label = null,
         basses = [],
-        sustain = false;
+        anchorStart = 0,
+        anchorSpan = 1;
 
   Entry.text(String text)
       : midis = [],
@@ -75,45 +83,31 @@ class Entry {
         run = false,
         label = text,
         basses = [],
-        sustain = false;
+        anchorStart = 0,
+        anchorSpan = 1;
 
-  Entry.bass(List<int> codes, {bool run = false})
+  Entry.bass(List<int> codes, {this.anchorStart = 0, this.anchorSpan = 1})
       : midis = [],
         len = 0,
         fingers = {},
         fingers2 = {},
-        run = run,
+        run = false,
         label = null,
-        basses = List.of(codes),
-        sustain = false;
+        basses = List.of(codes);
 
   bool get isText => label != null;
 
   bool get isBass => basses.isNotEmpty;
 
+  /// Ultimo indice (esclusivo) della melodia coperto dall'appunto di bassi.
+  int get anchorEnd => anchorStart + anchorSpan;
+
   void addBass(int code) => basses.add(code);
-
-  bool containsBass(int code) => basses.contains(code);
-
-  /// Rimuove un bottone; true se la voce è rimasta vuota.
-  bool removeBass(int code) {
-    basses.remove(code);
-    return basses.isEmpty;
-  }
 
   /// Rimuove l'ultimo bottone del giro; true se il giro è rimasto vuoto.
   bool removeLastBass() {
     if (basses.isNotEmpty) basses.removeLast();
     return basses.isEmpty;
-  }
-
-  /// Converte in accordo di bassi (simultaneo): senza duplicati, ordinato.
-  void toBassChord() {
-    run = false;
-    final u = basses.toSet().toList()..sort();
-    basses
-      ..clear()
-      ..addAll(u);
   }
 
   void addNote(int midi) {
@@ -195,8 +189,11 @@ class Entry {
           'f2': fingers2.map((k, v) => MapEntry(k.toString(), v)),
         if (run) 'r': true,
         if (label != null) 't': label,
-        if (basses.isNotEmpty) 'b': basses,
-        if (sustain) 'c': true,
+        if (basses.isNotEmpty) ...{
+          'b': basses,
+          'as': anchorStart,
+          'sp': anchorSpan,
+        },
       };
 
   factory Entry.fromJson(Map<String, dynamic> j) => Entry(
@@ -208,6 +205,8 @@ class Entry {
         label: j['t'] as String?,
         basses:
             ((j['b'] as List?) ?? const []).map((e) => e as int).toList(),
+        anchorStart: (j['as'] as int?) ?? 0,
+        anchorSpan: (j['sp'] as int?) ?? 1,
         fingers: (j['f'] as Map?)?.map(
               (k, v) => MapEntry(int.parse(k as String), v as int),
             ) ??

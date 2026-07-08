@@ -15,11 +15,19 @@ class AppState extends ChangeNotifier {
 
   final List<Entry> sequence = [];
 
-  /// Traccia dei bassi (riga parallela sotto la melodia).
+  /// Appunti di bassi: ciascuno è ancorato a un intervallo contiguo di voci
+  /// della melodia (promemoria visivo, non riprodotto dal Play).
   final List<Entry> bassSeq = [];
 
-  /// Indice della voce selezionata nella riga dei bassi; null = ultima.
+  /// Indice dell'appunto di bassi selezionato; null = ultimo.
   int? selectedBass;
+
+  /// Intervallo di voci della melodia selezionato (in modalità bassi) a cui
+  /// ancorare il prossimo appunto: indici inclusivi, start <= end.
+  int? bassSelStart;
+  int? bassSelEnd;
+
+  bool get hasBassRange => bassSelStart != null && bassSelEnd != null;
 
   /// Musiche salvate con nome.
   final List<SavedSong> songs = [];
@@ -71,7 +79,6 @@ class AppState extends ChangeNotifier {
   /// Riproduzione in corso.
   bool isPlaying = false;
   int? playingIndex;
-  int? playingBassIndex;
   int _playToken = 0;
 
   SharedPreferences? _prefs;
@@ -106,6 +113,7 @@ class AppState extends ChangeNotifier {
           ..clear()
           ..addAll(
               list.map((e) => Entry.fromJson(e as Map<String, dynamic>)));
+        bassSeq.sort((a, b) => a.anchorStart.compareTo(b.anchorStart));
       } catch (_) {}
     }
     final rawSongs = _prefs?.getString('songs');
@@ -265,6 +273,7 @@ class AppState extends ChangeNotifier {
     final i = targetIndex;
     if (i == null) {
       sequence.add(Entry.run([midi]));
+      _bassAnchorsOnInsert(sequence.length - 1);
       selected = 0;
       focusMidi = midi;
       _commit();
@@ -274,6 +283,7 @@ class AppState extends ChangeNotifier {
     // Etichette di testo e giri di bassi: crea un abbellimento dopo.
     if (t.isText || t.isBass) {
       sequence.insert(i + 1, Entry.run([midi]));
+      _bassAnchorsOnInsert(i + 1);
       selected = i + 1;
       focusMidi = midi;
       _commit();
@@ -291,6 +301,7 @@ class AppState extends ChangeNotifier {
     final i = targetIndex;
     final insertAt = i == null ? 0 : i + 1;
     sequence.insert(insertAt, Entry.single(midi));
+    _bassAnchorsOnInsert(insertAt);
     selected = insertAt;
     focusMidi = midi;
     _commit();
@@ -300,6 +311,7 @@ class AppState extends ChangeNotifier {
     final i = targetIndex;
     if (i == null) {
       sequence.add(Entry.single(midi));
+      _bassAnchorsOnInsert(sequence.length - 1);
       selected = null;
       focusMidi = midi;
       _commit();
@@ -309,6 +321,7 @@ class AppState extends ChangeNotifier {
     // Etichette di testo e giri di bassi non ospitano note: voce nuova dopo.
     if (entry.isText || entry.isBass) {
       sequence.insert(i + 1, Entry.single(midi));
+      _bassAnchorsOnInsert(i + 1);
       selected = i + 1;
       focusMidi = midi;
       _commit();
@@ -320,6 +333,7 @@ class AppState extends ChangeNotifier {
       final emptied = entry.removeNote(midi);
       if (emptied) {
         sequence.removeAt(i);
+        _bassAnchorsOnRemove(i);
         selected = null;
         focusMidi = null;
       }
@@ -330,81 +344,108 @@ class AppState extends ChangeNotifier {
     _commit();
   }
 
-  /// Tocco su un bottone dei bassi (riga parallela). Come per la tastiera:
-  /// normale = nuova voce dopo la selezionata; accordo = impila (insieme);
-  /// abbellimento = accoda in sequenza veloce.
+  /// Tocco su una voce della melodia in modalità bassi: sceglie l'intervallo
+  /// a cui ancorare l'appunto. Primo tocco = inizio; secondo tocco su
+  /// un'altra voce = estende l'intervallo; un tocco successivo riparte.
+  void tapMelodyForBassRange(int i) {
+    if (i < 0 || i >= sequence.length) return;
+    selectedBass = null; // nuova selezione = nuovo appunto
+    final s = bassSelStart, e = bassSelEnd;
+    if (s != null && s == e && s != i) {
+      bassSelStart = s < i ? s : i;
+      bassSelEnd = s < i ? i : s;
+    } else {
+      bassSelStart = i;
+      bassSelEnd = i;
+    }
+    _playEntrySound(sequence[i]);
+    notifyListeners();
+  }
+
+  /// Tocco su un bottone della bottoniera: suona e — se c'è un appunto
+  /// selezionato o un intervallo scelto — aggiunge il bottone al giro.
   void onBassTap(int code) {
     _playBassCode(code);
     if (practiceMode) return;
-    final i = bassTargetIndex;
-    if (runMode) {
-      if (i == null) {
-        bassSeq.add(Entry.bass([code], run: true));
-        selectedBass = 0;
-      } else {
-        final t = bassSeq[i];
-        if (!t.run) t.run = true;
-        t.addBass(code);
-        selectedBass = i;
-      }
-    } else if (chordMode) {
-      if (i == null) {
-        bassSeq.add(Entry.bass([code]));
-        selectedBass = 0;
-      } else {
-        final t = bassSeq[i];
-        if (t.run) t.toBassChord();
-        if (t.containsBass(code)) {
-          if (t.removeBass(code)) {
-            bassSeq.removeAt(i);
-            selectedBass = null;
-          }
-        } else {
-          t.addBass(code);
-          t.toBassChord();
-        }
-      }
+    final sel = selectedBass;
+    if (sel != null && sel >= 0 && sel < bassSeq.length) {
+      // Appunto selezionato: il bottone si accoda al giro.
+      bassSeq[sel].addBass(code);
+      _commit();
+      return;
+    }
+    if (!hasBassRange || sequence.isEmpty) {
+      // Nessun bersaglio: suona soltanto.
+      notifyListeners();
+      return;
+    }
+    final start = bassSelStart!.clamp(0, sequence.length - 1);
+    final span = (bassSelEnd!.clamp(0, sequence.length - 1)) - start + 1;
+    // Se esiste già un appunto con questa ancora, accoda lì.
+    final existing = bassSeq
+        .indexWhere((e) => e.anchorStart == start && e.anchorSpan == span);
+    if (existing >= 0) {
+      bassSeq[existing].addBass(code);
+      selectedBass = existing;
     } else {
-      final at = i == null ? bassSeq.length : i + 1;
-      bassSeq.insert(at, Entry.bass([code]));
+      final e = Entry.bass([code], anchorStart: start, anchorSpan: span);
+      var at = bassSeq.indexWhere((b) => b.anchorStart > start);
+      if (at < 0) at = bassSeq.length;
+      bassSeq.insert(at, e);
       selectedBass = at;
     }
     _commit();
   }
 
-  /// Inserisce una pausa (silenzio) nella riga dei bassi.
-  void addBassRest() {
-    final i = bassTargetIndex;
-    final at = i == null ? bassSeq.length : i + 1;
-    bassSeq.insert(at, Entry.bass([kBassRest]));
-    selectedBass = at;
-    _commit();
-  }
-
-  /// Basso continuo: attiva/disattiva il sostegno sulla voce bassi selezionata.
-  void toggleBassSustain() {
-    final e = bassTargetEntry;
-    if (e == null || e.run) return;
-    if (e.basses.every((c) => c < 0)) return; // le pause non si sostengono
-    e.sustain = !e.sustain;
-    _commit();
-  }
-
   void selectBassEntry(int index) {
+    if (index < 0 || index >= bassSeq.length) return;
     selectedBass = index;
-    _playEntrySound(bassSeq[index]);
+    // Mostra sull'annotazione l'intervallo coperto dall'appunto.
+    final e = bassSeq[index];
+    if (sequence.isNotEmpty) {
+      bassSelStart = e.anchorStart.clamp(0, sequence.length - 1);
+      bassSelEnd = (e.anchorEnd - 1).clamp(0, sequence.length - 1);
+    }
+    _playEntrySound(e);
     notifyListeners();
   }
 
-  /// Sposta una voce nella riga dei bassi (drag & drop).
-  void moveBassEntry(int oldIndex, int newIndex) {
-    if (oldIndex < 0 || oldIndex >= bassSeq.length) return;
-    if (newIndex > oldIndex) newIndex -= 1;
-    newIndex = newIndex.clamp(0, bassSeq.length - 1);
-    final e = bassSeq.removeAt(oldIndex);
-    bassSeq.insert(newIndex, e);
-    selectedBass = newIndex;
-    _commit();
+  // --- Ancoraggio degli appunti di bassi alla melodia -----------------------
+
+  /// Da chiamare dopo `sequence.insert(i, ...)`: fa scorrere le ancore.
+  void _bassAnchorsOnInsert(int i) => _bassAnchorsOnInsertKeeping(i, const []);
+
+  void _bassAnchorsOnInsertKeeping(int i, List<Entry> skip) {
+    for (final e in bassSeq) {
+      if (skip.contains(e)) continue;
+      if (i <= e.anchorStart) {
+        e.anchorStart++;
+      } else if (i < e.anchorEnd) {
+        e.anchorSpan++; // inserimento dentro l'intervallo: si allarga
+      }
+    }
+    bassSelStart = bassSelEnd = null;
+  }
+
+  /// Da chiamare dopo `sequence.removeAt(i)`: restringe o elimina gli appunti.
+  void _bassAnchorsOnRemove(int i) => _bassAnchorsOnRemoveKeeping(i, const []);
+
+  void _bassAnchorsOnRemoveKeeping(int i, List<Entry> skip) {
+    final dead = <Entry>[];
+    for (final e in bassSeq) {
+      if (skip.contains(e)) continue;
+      if (i < e.anchorStart) {
+        e.anchorStart--;
+      } else if (i < e.anchorEnd) {
+        e.anchorSpan--;
+        if (e.anchorSpan <= 0) dead.add(e);
+      }
+    }
+    if (dead.isNotEmpty) {
+      bassSeq.removeWhere(dead.contains);
+      selectedBass = null;
+    }
+    bassSelStart = bassSelEnd = null;
   }
 
   /// Suona un bottone Stradella: bassi = nota grave singola,
@@ -441,7 +482,7 @@ class AppState extends ChangeNotifier {
 
   void incLen() {
     final e = controlTarget;
-    if (e != null && !e.isText && e.len < kMaxLen) {
+    if (e != null && !e.isText && !e.isBass && e.len < kMaxLen) {
       e.len++;
       _commit();
     }
@@ -449,7 +490,7 @@ class AppState extends ChangeNotifier {
 
   void decLen() {
     final e = controlTarget;
-    if (e != null && !e.isText && e.len > 0) {
+    if (e != null && !e.isText && !e.isBass && e.len > 0) {
       e.len--;
       _commit();
     }
@@ -464,6 +505,7 @@ class AppState extends ChangeNotifier {
     final i = targetIndex;
     final insertAt = i == null ? sequence.length : i + 1;
     sequence.insert(insertAt, Entry.text(t));
+    _bassAnchorsOnInsert(insertAt);
     selected = insertAt;
     focusMidi = null;
     _commit();
@@ -477,6 +519,7 @@ class AppState extends ChangeNotifier {
     final t = text.trim();
     if (t.isEmpty) {
       sequence.removeAt(index);
+      _bassAnchorsOnRemove(index);
       selected = null;
     } else {
       e.label = t;
@@ -513,6 +556,7 @@ class AppState extends ChangeNotifier {
       e.removeNote(m);
       if (e.midis.isEmpty) {
         sequence.removeAt(i);
+        _bassAnchorsOnRemove(i);
         selected = null;
         focusMidi = null;
       } else {
@@ -521,20 +565,22 @@ class AppState extends ChangeNotifier {
     } else {
       // Nota singola / abbellimento a una nota: cancella l'intera voce.
       sequence.removeAt(i);
+      _bassAnchorsOnRemove(i);
       selected = null;
       focusMidi = null;
     }
     _commit();
   }
 
-  /// Cancella nella riga dei bassi: multi -> toglie l'ultimo bottone;
-  /// singolo -> rimuove la voce.
+  /// Cancella l'appunto di bassi: giro -> toglie l'ultimo bottone;
+  /// singolo -> rimuove l'appunto.
   void _deleteBassTarget() {
     final i = bassTargetIndex;
     if (i == null) return;
     final e = bassSeq[i];
     if (e.basses.length > 1) {
       e.removeLastBass();
+      selectedBass = i;
     } else {
       bassSeq.removeAt(i);
       selectedBass = null;
@@ -547,8 +593,20 @@ class AppState extends ChangeNotifier {
     if (oldIndex < 0 || oldIndex >= sequence.length) return;
     if (newIndex > oldIndex) newIndex -= 1;
     newIndex = newIndex.clamp(0, sequence.length - 1);
+    // Gli appunti ancorati SOLO alla voce spostata la seguono; gli altri
+    // si adattano come per una rimozione + inserimento.
+    final follow = bassSeq
+        .where((b) => b.anchorSpan == 1 && b.anchorStart == oldIndex)
+        .toList();
     final e = sequence.removeAt(oldIndex);
+    _bassAnchorsOnRemoveKeeping(oldIndex, follow);
     sequence.insert(newIndex, e);
+    _bassAnchorsOnInsertKeeping(newIndex, follow);
+    for (final b in follow) {
+      b.anchorStart = newIndex;
+    }
+    bassSeq.sort((a, b) => a.anchorStart.compareTo(b.anchorStart));
+    selectedBass = null;
     selected = newIndex;
     focusMidi = e.midis.isNotEmpty ? e.midis.last : null;
     _commit();
@@ -571,18 +629,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Suona una voce: accordo insieme, abbellimento in rapida successione.
+  /// Suona una voce: accordo insieme, abbellimento in rapida successione,
+  /// appunto di bassi = giro in sequenza.
   Future<void> _playEntrySound(Entry e) async {
     if (!audioOn) return;
     if (e.isBass) {
-      if (e.run) {
-        for (final c in e.basses) {
-          _playBassCode(c);
+      for (final c in e.basses) {
+        _playBassCode(c);
+        if (e.basses.length > 1) {
           await Future.delayed(Duration(milliseconds: _scaledMs(240)));
-        }
-      } else {
-        for (final c in e.basses) {
-          _playBassCode(c);
         }
       }
       return;
@@ -605,6 +660,7 @@ class AppState extends ChangeNotifier {
     bassSeq.clear();
     selected = null;
     selectedBass = null;
+    bassSelStart = bassSelEnd = null;
     focusMidi = null;
     loadedName = null;
     _commit();
@@ -645,8 +701,10 @@ class AppState extends ChangeNotifier {
     bassSeq
       ..clear()
       ..addAll(song.cloneBassEntries());
+    bassSeq.sort((a, b) => a.anchorStart.compareTo(b.anchorStart));
     selected = null;
     selectedBass = null;
+    bassSelStart = bassSelEnd = null;
     focusMidi = null;
     loadedName = song.name;
     _commit();
@@ -750,22 +808,17 @@ class AppState extends ChangeNotifier {
 
   // --- Riproduzione --------------------------------------------------------
 
+  /// Riproduce SOLO la melodia: gli appunti di bassi sono promemoria visivi.
   Future<void> playSequence() async {
-    if (isPlaying || (sequence.isEmpty && bassSeq.isEmpty)) return;
+    if (isPlaying || sequence.isEmpty) return;
     isPlaying = true;
     _playToken++;
     final token = _playToken;
     notifyListeners();
-    // Le due righe (melodia e bassi) suonano in parallelo, ciascuna col
-    // proprio passo; lo Stop le ferma entrambe.
-    await Future.wait([
-      _playMelodyTrack(token),
-      _playBassTrack(token),
-    ]);
+    await _playMelodyTrack(token);
     if (token == _playToken) {
       isPlaying = false;
       playingIndex = null;
-      playingBassIndex = null;
       notifyListeners();
     }
   }
@@ -810,52 +863,10 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> _playBassTrack(int token) async {
-    for (var i = 0; i < bassSeq.length; i++) {
-      if (token != _playToken) break;
-      playingBassIndex = i;
-      notifyListeners();
-      final e = bassSeq[i];
-      if (e.run) {
-        // Abbellimento di bassi: bottoni in rapida successione.
-        for (final c in e.basses) {
-          if (token != _playToken) break;
-          _playBassCode(c);
-          await Future.delayed(Duration(milliseconds: _scaledMs(ornamentGapMs)));
-        }
-        await Future.delayed(
-            Duration(milliseconds: _scaledMs(120 + e.len * 170)));
-      } else {
-        // Singolo o accordo: bottoni insieme. Se continuo, ribatte il
-        // suono per tutta la durata (fino all'attacco del chip successivo).
-        final slot = _scaledMs(280 + e.len * 170);
-        if (e.sustain) {
-          var elapsed = 0;
-          final step = _scaledMs(450);
-          while (elapsed < slot) {
-            if (token != _playToken) break;
-            for (final c in e.basses) {
-              _playBassCode(c);
-            }
-            final wait = (slot - elapsed) < step ? (slot - elapsed) : step;
-            await Future.delayed(Duration(milliseconds: wait));
-            elapsed += wait;
-          }
-        } else {
-          for (final c in e.basses) {
-            _playBassCode(c);
-          }
-          await Future.delayed(Duration(milliseconds: slot));
-        }
-      }
-    }
-  }
-
   void stopPlayback() {
     _playToken++;
     isPlaying = false;
     playingIndex = null;
-    playingBassIndex = null;
     notifyListeners();
   }
 
@@ -921,8 +932,16 @@ class AppState extends ChangeNotifier {
   String get exportText {
     final mel = formatSequence(sequence, italian: italian);
     if (bassSeq.isEmpty) return mel;
-    final bass =
-        bassSeq.map((e) => formatEntry(e, italian: italian)).join(' ');
+    // Appunti di bassi con la posizione (1-based) delle voci coperte:
+    // B: [3-5] Do DoM | [8] Sol7
+    final bass = bassSeq.map((e) {
+      final labels =
+          e.basses.map((c) => bassLabel(c, italian: italian)).join(' ');
+      final a = e.anchorStart + 1;
+      final b = e.anchorEnd;
+      final pos = a == b ? '[$a]' : '[$a-$b]';
+      return '$pos $labels';
+    }).join(' | ');
     return mel.isEmpty ? 'B: $bass' : '$mel\nB: $bass';
   }
 

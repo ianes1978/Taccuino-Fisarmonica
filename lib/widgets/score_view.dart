@@ -104,24 +104,42 @@ class _ScoreViewState extends State<ScoreView> {
 }
 
 extension on _ScoreViewState {
-  /// Le etichette di testo diventano sottotitoli che dividono in sezioni;
-  /// tra un sottotitolo e l'altro, le note scorrono in un Wrap.
+  /// Le etichette di testo diventano sottotitoli che dividono in sezioni.
+  /// Le voci coperte da un appunto di bassi formano un blocco: riga delle
+  /// note sopra, giro di bassi in ROSSO sotto (linea della tastiera +
+  /// linea dei bassi).
   List<Widget> _buildSections() {
     final out = <Widget>[];
     var tokens = <Widget>[];
 
     void flush() {
       if (tokens.isEmpty) return;
-      out.add(Wrap(
-        spacing: _size * 0.45,
-        runSpacing: _size * 0.55,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: tokens,
+      out.add(Padding(
+        padding: EdgeInsets.only(bottom: _size * 0.55),
+        child: Wrap(
+          spacing: _size * 0.45,
+          runSpacing: _size * 0.55,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: tokens,
+        ),
       ));
       tokens = <Widget>[];
     }
 
-    for (final e in widget.entries) {
+    String bassText(List<Entry> anns) => anns
+        .map((a) => a.basses
+            .map((c) => bassLabel(c, italian: widget.italian))
+            .join(' '))
+        .join('  ·  ');
+
+    final entries = widget.entries;
+    final anns = List.of(widget.bassEntries)
+      ..sort((a, b) => a.anchorStart.compareTo(b.anchorStart));
+    final consumed = <Entry>{};
+
+    var i = 0;
+    while (i < entries.length) {
+      final e = entries[i];
       if (e.isText) {
         flush();
         out.add(Padding(
@@ -142,39 +160,94 @@ extension on _ScoreViewState {
             ],
           ),
         ));
-      } else {
+        i++;
+        continue;
+      }
+      // Raccogli gli appunti che iniziano qui (e quelli che iniziano dentro
+      // il blocco man mano che si allarga).
+      var end = i + 1;
+      final group = <Entry>[];
+      var grew = true;
+      while (grew) {
+        grew = false;
+        for (final a in anns) {
+          if (consumed.contains(a)) continue;
+          if (a.anchorStart >= i && a.anchorStart < end) {
+            consumed.add(a);
+            group.add(a);
+            if (a.anchorEnd > end) {
+              end = a.anchorEnd;
+              grew = true;
+            }
+          }
+        }
+      }
+      if (group.isEmpty) {
         tokens.add(
           _Token(text: formatEntry(e, italian: widget.italian), size: _size),
         );
+        i++;
+        continue;
       }
-    }
-    flush();
-    if (widget.bassEntries.isNotEmpty) {
-      out.add(Padding(
-        padding: EdgeInsets.only(top: _size * 0.9, bottom: _size * 0.45),
+      // Il blocco si ferma comunque a un eventuale sottotitolo.
+      if (end > entries.length) end = entries.length;
+      var stop = end;
+      for (var k = i; k < end; k++) {
+        if (entries[k].isText) {
+          stop = k;
+          break;
+        }
+      }
+      if (stop <= i) stop = i + 1; // sicurezza
+      flush();
+      out.add(Container(
+        margin: EdgeInsets.only(bottom: _size * 0.55),
+        padding: EdgeInsets.only(left: _size * 0.35),
+        decoration: const BoxDecoration(
+          border: Border(
+            left: BorderSide(color: Palette.bassRed, width: 3),
+          ),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.tr.switchToBass,
-              style: display(
-                  size: _size * 0.85,
-                  weight: FontWeight.w600,
-                  color: Palette.muted),
+            Wrap(
+              spacing: _size * 0.45,
+              runSpacing: _size * 0.55,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                for (var k = i; k < stop; k++)
+                  _Token(
+                      text: formatEntry(entries[k], italian: widget.italian),
+                      size: _size),
+              ],
             ),
-            const SizedBox(height: 3),
-            Container(height: 1.5, width: 120, color: Palette.line),
+            SizedBox(height: _size * 0.25),
+            Text(
+              bassText(group),
+              style: mono(
+                  size: _size * 0.85,
+                  weight: FontWeight.w700,
+                  color: Palette.bassRed),
+            ),
           ],
         ),
       ));
-      out.add(Wrap(
-        spacing: _size * 0.45,
-        runSpacing: _size * 0.55,
-        children: [
-          for (final e in widget.bassEntries)
-            _Token(
-                text: formatEntry(e, italian: widget.italian), size: _size),
-        ],
+      i = stop;
+    }
+    flush();
+    // Appunti rimasti fuori (ancore oltre la fine: dati vecchi).
+    final leftover = anns.where((a) => !consumed.contains(a)).toList();
+    if (leftover.isNotEmpty) {
+      out.add(Padding(
+        padding: EdgeInsets.only(top: _size * 0.4),
+        child: Text(
+          bassText(leftover),
+          style: mono(
+              size: _size * 0.85,
+              weight: FontWeight.w700,
+              color: Palette.bassRed),
+        ),
       ));
     }
     return out;

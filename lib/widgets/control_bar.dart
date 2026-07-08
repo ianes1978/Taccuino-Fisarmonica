@@ -29,35 +29,39 @@ class ControlBar extends StatelessWidget {
               _SquareBtn(
                 width: 52,
                 tooltip: state.tr.chordMode,
-                enabled: true,
-                active: state.chordMode,
+                enabled: !state.bassMode,
+                active: state.chordMode && !state.bassMode,
                 onTap: () {
                   HapticFeedback.selectionClick();
                   state.toggleChordMode();
                 },
                 child: Icon(Icons.queue_music,
                     size: 22,
-                    color: state.chordMode ? Palette.bg : Palette.brass),
+                    color: state.bassMode
+                        ? Palette.brassDeep
+                        : (state.chordMode ? Palette.bg : Palette.brass)),
               ),
               const SizedBox(width: 6),
               _SquareBtn(
                 width: 52,
                 tooltip: state.tr.ornamentMode,
-                enabled: true,
-                active: state.runMode,
+                enabled: !state.bassMode,
+                active: state.runMode && !state.bassMode,
                 onTap: () {
                   HapticFeedback.selectionClick();
                   state.toggleRunMode();
                 },
                 child: Icon(Icons.local_florist,
                     size: 20,
-                    color: state.runMode ? Palette.bg : Palette.brass),
+                    color: state.bassMode
+                        ? Palette.brassDeep
+                        : (state.runMode ? Palette.bg : Palette.brass)),
               ),
               const SizedBox(width: 6),
               _SquareBtn(
                 width: 52,
                 tooltip: state.tr.addTextTooltip,
-                enabled: true,
+                enabled: !state.bassMode,
                 onTap: () async {
                   HapticFeedback.selectionClick();
                   final text = await promptText(
@@ -71,8 +75,10 @@ class ControlBar extends StatelessWidget {
                     state.addTextEntry(text);
                   }
                 },
-                child: const Icon(Icons.text_fields,
-                    size: 20, color: Palette.brass),
+                child: Icon(Icons.text_fields,
+                    size: 20,
+                    color:
+                        state.bassMode ? Palette.brassDeep : Palette.brass),
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -103,56 +109,35 @@ class ControlBar extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              // Durata: − n +
-              _StepperGroup(
-                value: state.controlTarget?.len ?? 0,
-                enabled: hasTarget,
-                min: 0,
-                max: 8,
-                decTooltip: state.tr.lessDuration,
-                incTooltip: state.tr.moreDuration,
-                onDec: () {
-                  HapticFeedback.lightImpact();
-                  state.decLen();
-                },
-                onInc: () {
-                  HapticFeedback.lightImpact();
-                  state.incLen();
-                },
-              ),
-              const Spacer(),
-              if (state.bassMode) ...[
-                // Bottoniera attiva: continuo (sostiene fino al chip dopo)
-                // e pausa (silenzio) al posto delle dita.
-                _SquareBtn(
-                  width: 52,
-                  tooltip: state.tr.bassSustain,
-                  enabled: state.bassTargetEntry != null &&
-                      !(state.bassTargetEntry?.run ?? false),
-                  active: state.bassTargetEntry?.sustain == true,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    state.toggleBassSustain();
-                  },
-                  child: Icon(Icons.arrow_right_alt,
-                      size: 24,
-                      color: state.bassTargetEntry?.sustain == true
-                          ? Palette.bg
-                          : Palette.brass),
-                ),
-                const SizedBox(width: 6),
-                _SquareBtn(
-                  width: 52,
-                  tooltip: state.tr.bassRest,
-                  enabled: true,
-                  onTap: () {
+              if (state.bassMode)
+                // Bottoniera attiva: come si annota un giro di bassi.
+                Expanded(
+                  child: Text(
+                    state.tr.bassHint,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: mono(size: 11, color: Palette.muted),
+                  ),
+                )
+              else ...[
+                // Durata: − n +
+                _StepperGroup(
+                  value: state.controlTarget?.len ?? 0,
+                  enabled: hasTarget,
+                  min: 0,
+                  max: 8,
+                  decTooltip: state.tr.lessDuration,
+                  incTooltip: state.tr.moreDuration,
+                  onDec: () {
                     HapticFeedback.lightImpact();
-                    state.addBassRest();
+                    state.decLen();
                   },
-                  child:
-                      const Icon(Icons.music_off, size: 20, color: Palette.brass),
+                  onInc: () {
+                    HapticFeedback.lightImpact();
+                    state.incLen();
+                  },
                 ),
-              ] else
+                const Spacer(),
                 // Dita 1..5: tap = principale (ri-tocco toglie);
                 // long-press su un altro numero = sostituzione (es. 3-1).
                 for (var f = 1; f <= 5; f++)
@@ -191,6 +176,7 @@ class ControlBar extends StatelessWidget {
                       ),
                     ),
                   ),
+              ],
             ],
           ),
         ],

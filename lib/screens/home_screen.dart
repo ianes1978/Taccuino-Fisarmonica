@@ -169,7 +169,6 @@ Future<void> _exportPdf(BuildContext context, AppState state) async {
     await ExportService.exportPdf(
       entries: state.sequence,
       bassEntries: state.bassSeq,
-      bassHeading: state.tr.switchToBass,
       italian: state.italian,
       title: t.isEmpty ? null : t,
     );

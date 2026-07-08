@@ -30,12 +30,12 @@ class ExportService {
     required bool italian,
     String? title,
     List<Entry> bassEntries = const [],
-    String bassHeading = 'Bassi',
   }) async {
     final doc = pw.Document();
     final heading = title ?? 'Taccuino Fisarmonica';
     final mono = pw.Font.courier();
     final monoBold = pw.Font.courierBold();
+    const bassRed = PdfColor.fromInt(0xFFB03A2E);
 
     pw.Widget token(String t) => pw.Container(
           padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -46,16 +46,32 @@ class ExportService {
           child: pw.Text(t, style: pw.TextStyle(font: mono, fontSize: 12)),
         );
 
-    // Le etichette di testo diventano sottotitoli che dividono in sezioni.
+    String bassText(List<Entry> anns) => anns
+        .map((a) =>
+            a.basses.map((c) => bassLabel(c, italian: italian)).join(' '))
+        .join('  ·  ');
+
+    // Le etichette di testo diventano sottotitoli che dividono in sezioni;
+    // le voci coperte da un appunto di bassi formano un blocco con il giro
+    // di bassi in ROSSO sulla riga sotto.
     final body = <pw.Widget>[];
     var tokens = <pw.Widget>[];
     void flush() {
       if (tokens.isEmpty) return;
-      body.add(pw.Wrap(spacing: 6, runSpacing: 6, children: tokens));
+      body.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 6),
+        child: pw.Wrap(spacing: 6, runSpacing: 6, children: tokens),
+      ));
       tokens = <pw.Widget>[];
     }
 
-    for (final e in entries) {
+    final anns = List.of(bassEntries)
+      ..sort((a, b) => a.anchorStart.compareTo(b.anchorStart));
+    final consumed = <Entry>{};
+
+    var i = 0;
+    while (i < entries.length) {
+      final e = entries[i];
       if (e.isText) {
         flush();
         body.add(pw.Padding(
@@ -70,28 +86,74 @@ class ExportService {
             ],
           ),
         ));
-      } else {
-        tokens.add(token(formatEntry(e, italian: italian)));
+        i++;
+        continue;
       }
-    }
-    flush();
-
-    if (bassEntries.isNotEmpty) {
-      body.add(pw.Padding(
-        padding: pw.EdgeInsets.only(top: body.isEmpty ? 0 : 16, bottom: 6),
+      var end = i + 1;
+      final group = <Entry>[];
+      var grew = true;
+      while (grew) {
+        grew = false;
+        for (final a in anns) {
+          if (consumed.contains(a)) continue;
+          if (a.anchorStart >= i && a.anchorStart < end) {
+            consumed.add(a);
+            group.add(a);
+            if (a.anchorEnd > end) {
+              end = a.anchorEnd;
+              grew = true;
+            }
+          }
+        }
+      }
+      if (group.isEmpty) {
+        tokens.add(token(formatEntry(e, italian: italian)));
+        i++;
+        continue;
+      }
+      if (end > entries.length) end = entries.length;
+      var stop = end;
+      for (var k = i; k < end; k++) {
+        if (entries[k].isText) {
+          stop = k;
+          break;
+        }
+      }
+      if (stop <= i) stop = i + 1;
+      flush();
+      body.add(pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 8),
+        padding: const pw.EdgeInsets.only(left: 6),
+        decoration: const pw.BoxDecoration(
+          border: pw.Border(
+            left: pw.BorderSide(color: bassRed, width: 2),
+          ),
+        ),
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text(bassHeading,
-                style: pw.TextStyle(font: monoBold, fontSize: 14)),
-            pw.SizedBox(height: 2),
-            pw.Container(height: 1, width: 110, color: PdfColors.grey700),
+            pw.Wrap(spacing: 6, runSpacing: 6, children: [
+              for (var k = i; k < stop; k++)
+                token(formatEntry(entries[k], italian: italian)),
+            ]),
+            pw.SizedBox(height: 3),
+            pw.Text(bassText(group),
+                style: pw.TextStyle(
+                    font: monoBold, fontSize: 11, color: bassRed)),
           ],
         ),
       ));
-      body.add(pw.Wrap(spacing: 6, runSpacing: 6, children: [
-        for (final e in bassEntries) token(formatEntry(e, italian: italian)),
-      ]));
+      i = stop;
+    }
+    flush();
+    final leftover = anns.where((a) => !consumed.contains(a)).toList();
+    if (leftover.isNotEmpty) {
+      body.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 6),
+        child: pw.Text(bassText(leftover),
+            style:
+                pw.TextStyle(font: monoBold, fontSize: 11, color: bassRed)),
+      ));
     }
 
     doc.addPage(

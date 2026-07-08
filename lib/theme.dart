@@ -13,6 +13,10 @@ class Palette {
   static const muted = Color(0xFFA99B88);
   static const line = Color(0xFF3A2F31);
 
+  // Rosso degli appunti di bassi (caldo, in tono col legno).
+  static const bassRed = Color(0xFFE06A55);
+  static const bassRedDim = Color(0xFF7A3B2E);
+
   // Mother-of-pearl white keys
   static const whiteTop = Color(0xFFFBF7EF);
   static const whiteMid = Color(0xFFF2E9D9);

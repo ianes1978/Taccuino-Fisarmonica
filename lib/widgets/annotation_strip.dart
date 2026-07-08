@@ -10,10 +10,44 @@ import 'score_view.dart';
 import 'text_prompt.dart';
 
 /// Striscia dell'annotazione: chip inline per note singole, chip con note
-/// incolonnate per gli accordi. Header con play, copia e svuota.
-class AnnotationStrip extends StatelessWidget {
+/// incolonnate per gli accordi. Sotto, la riga degli appunti di bassi (rossi),
+/// centrati sull'intervallo di voci che coprono. Header con play, copia, ecc.
+class AnnotationStrip extends StatefulWidget {
   final AppState state;
   const AnnotationStrip({super.key, required this.state});
+
+  @override
+  State<AnnotationStrip> createState() => _AnnotationStripState();
+}
+
+class _AnnotationStripState extends State<AnnotationStrip> {
+  // Le due righe (voci e bassi) scorrono insieme.
+  final ScrollController _melCtrl = ScrollController();
+  final ScrollController _bassCtrl = ScrollController();
+  bool _syncing = false;
+
+  AppState get state => widget.state;
+
+  @override
+  void initState() {
+    super.initState();
+    _melCtrl.addListener(() => _sync(_melCtrl, _bassCtrl));
+    _bassCtrl.addListener(() => _sync(_bassCtrl, _melCtrl));
+  }
+
+  void _sync(ScrollController from, ScrollController to) {
+    if (_syncing || !from.hasClients || !to.hasClients) return;
+    _syncing = true;
+    to.jumpTo(from.offset.clamp(0.0, to.position.maxScrollExtent));
+    _syncing = false;
+  }
+
+  @override
+  void dispose() {
+    _melCtrl.dispose();
+    _bassCtrl.dispose();
+    super.dispose();
+  }
 
   void _copy(BuildContext context) {
     Clipboard.setData(ClipboardData(text: state.exportText));
@@ -30,9 +64,104 @@ class AnnotationStrip extends StatelessWidget {
       );
   }
 
+  // --- Larghezze dei chip ---------------------------------------------------
+  // Per centrare gli appunti di bassi sotto le voci coperte serve la posizione
+  // orizzontale di ogni chip: la calcoliamo misurando il testo con gli stessi
+  // stili usati da _EntryChip (i chip vengono poi FORZATI a questa larghezza,
+  // così le due righe restano allineate anche fuori dallo schermo).
+
+  static const double _gap = 8; // spazio fra i chip
+  static const double _chrome = 28; // padding orizzontale + bordo del chip
+  static const double _slack = 6; // margine di sicurezza
+
+  double _textW(String s, TextStyle style) {
+    final tp = TextPainter(
+      text: TextSpan(text: s, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    return tp.width;
+  }
+
+  double _badgeW(int? f, int? f2) {
+    if (f == null) return 0;
+    final label = f2 == null ? '$f' : '$f-$f2';
+    final w = _textW(label, mono(size: 9, weight: FontWeight.w700)) + 6;
+    return 2 + (w < 14 ? 14 : w);
+  }
+
+  double _chipWidth(Entry e, bool italian) {
+    final dashes = '-' * e.len;
+    double content;
+    if (e.isBass) {
+      // Voce bassi rimasta inline (dati vecchi).
+      content = 15 +
+          _textW('⟨', mono(size: 16, weight: FontWeight.w700)) +
+          _textW('⟩', mono(size: 16, weight: FontWeight.w700));
+      for (final c in e.basses) {
+        content +=
+            4 + _textW(bassLabel(c, italian: italian), mono(size: 13, weight: FontWeight.w700));
+      }
+      if (dashes.isNotEmpty) {
+        content += 3 + _textW(dashes, mono(size: 16, weight: FontWeight.w700));
+      }
+    } else if (e.isText) {
+      final w = _textW(e.label ?? '', display(size: 14, weight: FontWeight.w600));
+      content = 14 + 5 + (w > 150 ? 150 : w);
+    } else if (e.run) {
+      content = _textW('{', mono(size: 17, weight: FontWeight.w700)) +
+          _textW('}', mono(size: 17, weight: FontWeight.w700));
+      for (final m in e.midis) {
+        content += 6 +
+            _textW(noteLabel(m, italian: italian),
+                mono(size: 13, weight: FontWeight.w700)) +
+            _badgeW(e.fingerOf(m), e.finger2Of(m));
+      }
+      if (dashes.isNotEmpty) {
+        content += 4 + _textW(dashes, mono(size: 16, weight: FontWeight.w700));
+      }
+    } else if (e.midis.length == 1) {
+      final m = e.midis.first;
+      content = _textW('${noteLabel(m, italian: italian)}$dashes',
+              mono(size: 16, weight: FontWeight.w700)) +
+          _badgeW(e.fingerOf(m), e.finger2Of(m));
+    } else {
+      // Accordo: colonna larga quanto la nota più larga.
+      double col = 0;
+      for (final m in e.midis) {
+        final w = 4 +
+            _textW(noteLabel(m, italian: italian),
+                mono(size: 13, weight: FontWeight.w700)) +
+            _badgeW(e.fingerOf(m), e.finger2Of(m));
+        if (w > col) col = w;
+      }
+      final many = e.midis.length > 3;
+      if (many && col > 96) col = 96;
+      content = col + (many ? 14 : 0);
+      if (dashes.isNotEmpty) {
+        content += 4 + _textW(dashes, mono(size: 16, weight: FontWeight.w700));
+      }
+    }
+    final w = content + _chrome + _slack;
+    return w < 44 ? 44 : w;
+  }
+
   @override
   Widget build(BuildContext context) {
     final empty = state.isEmpty;
+    final n = state.sequence.length;
+    final widths = <double>[
+      for (final e in state.sequence) _chipWidth(e, state.italian),
+    ];
+    // Posizione x di ogni chip (il k-esimo inizia dopo k chip + spazi).
+    final xs = <double>[];
+    var acc = 0.0;
+    for (final w in widths) {
+      xs.add(acc);
+      acc += w + _gap;
+    }
+    final totalW = acc;
+
     return Container(
       decoration: const BoxDecoration(
         color: Palette.panel,
@@ -121,9 +250,10 @@ class AnnotationStrip extends StatelessWidget {
                     ),
                   )
                 : ReorderableListView.builder(
+                    scrollController: _melCtrl,
                     scrollDirection: Axis.horizontal,
                     buildDefaultDragHandles: false,
-                    itemCount: state.sequence.length,
+                    itemCount: n,
                     onReorder: state.moveEntry,
                     proxyDecorator: (child, index, animation) => Material(
                       color: Colors.transparent,
@@ -131,147 +261,204 @@ class AnnotationStrip extends StatelessWidget {
                     ),
                     itemBuilder: (context, i) {
                       final entry = state.sequence[i];
+                      final inRange = state.bassMode &&
+                          state.hasBassRange &&
+                          i >= state.bassSelStart! &&
+                          i <= state.bassSelEnd!;
                       // Tieni premuto per spostare; tocco singolo per
-                      // selezionare.
+                      // selezionare (in modalità bassi: scegli l'intervallo).
                       return ReorderableDelayedDragStartListener(
                         key: ObjectKey(entry),
                         index: i,
                         child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _EntryChip(
-                            entry: entry,
-                            italian: state.italian,
-                            isTarget: state.targetIndex == i,
-                            isPlaying: state.playingIndex == i,
-                            chordMode: state.chordMode,
-                            runMode: state.runMode,
-                            focusMidi: state.targetIndex == i
-                                ? state.effectiveFocusMidi
-                                : null,
-                            onTapChip: () async {
-                              if (entry.isText) {
-                                // Tap sul testo: selezione + modifica.
-                                state.selectEntry(i);
-                                final text = await promptText(
-                                  context,
-                                  heading: state.tr.editText,
-                                  hint: state.tr.textEmptyDeletes,
-                                  initial: entry.label ?? '',
-                                  confirm: state.tr.save,
-                                  cancel: state.tr.cancel,
-                                );
-                                if (text != null) {
-                                  state.editTextEntry(i, text);
+                          padding: const EdgeInsets.only(right: _gap),
+                          child: SizedBox(
+                            width: widths[i],
+                            child: _EntryChip(
+                              entry: entry,
+                              italian: state.italian,
+                              isTarget:
+                                  !state.bassMode && state.targetIndex == i,
+                              isPlaying: state.playingIndex == i,
+                              chordMode: state.chordMode,
+                              runMode: state.runMode,
+                              inBassRange: inRange,
+                              focusMidi:
+                                  !state.bassMode && state.targetIndex == i
+                                      ? state.effectiveFocusMidi
+                                      : null,
+                              onTapChip: () async {
+                                if (state.bassMode) {
+                                  state.tapMelodyForBassRange(i);
+                                  return;
                                 }
-                              } else {
-                                state.selectEntry(i);
-                              }
-                            },
-                            onTapNote: (m) => state.focusNoteInEntry(i, m),
+                                if (entry.isText) {
+                                  // Tap sul testo: selezione + modifica.
+                                  state.selectEntry(i);
+                                  final text = await promptText(
+                                    context,
+                                    heading: state.tr.editText,
+                                    hint: state.tr.textEmptyDeletes,
+                                    initial: entry.label ?? '',
+                                    confirm: state.tr.save,
+                                    cancel: state.tr.cancel,
+                                  );
+                                  if (text != null) {
+                                    state.editTextEntry(i, text);
+                                  }
+                                } else {
+                                  state.selectEntry(i);
+                                }
+                              },
+                              onTapNote: (m) {
+                                if (state.bassMode) {
+                                  state.tapMelodyForBassRange(i);
+                                } else {
+                                  state.focusNoteInEntry(i, m);
+                                }
+                              },
+                            ),
                           ),
                         ),
                       );
                     },
                   ),
           ),
-          // Riga dei bassi (traccia parallela).
+          // Riga degli appunti di bassi, allineata sotto le voci coperte.
           if (state.bassSeq.isNotEmpty || state.bassMode) ...[
             const SizedBox(height: 4),
             SizedBox(
-              height: 34,
-              child: state.bassSeq.isEmpty
-                  ? Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('B: —',
-                          style: mono(size: 12, color: Palette.muted)),
-                    )
-                  : ReorderableListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      buildDefaultDragHandles: false,
-                      itemCount: state.bassSeq.length,
-                      onReorder: state.moveBassEntry,
-                      proxyDecorator: (child, index, animation) => Material(
-                        color: Colors.transparent,
-                        child: child,
-                      ),
-                      itemBuilder: (context, i) {
-                        final entry = state.bassSeq[i];
-                        return ReorderableDelayedDragStartListener(
-                          key: ObjectKey(entry),
-                          index: i,
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: _BassChip(
-                              entry: entry,
-                              italian: state.italian,
-                              isTarget: state.bassTargetIndex == i &&
-                                  state.bassMode,
-                              isPlaying: state.playingBassIndex == i,
-                              onTap: () => state.selectBassEntry(i),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+              height: 40,
+              child: _buildBassRow(n, widths, xs, totalW),
             ),
           ],
         ],
       ),
     );
   }
-}
 
-/// Chip della riga bassi: singolo `Do`, accordo `[Do FaM]`, giro `{Do Sol}`.
-class _BassChip extends StatelessWidget {
-  final Entry entry;
-  final bool italian;
-  final bool isTarget;
-  final bool isPlaying;
-  final VoidCallback onTap;
-  const _BassChip({
-    required this.entry,
-    required this.italian,
-    required this.isTarget,
-    required this.isPlaying,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final labels =
-        entry.basses.map((c) => bassLabel(c, italian: italian)).toList();
-    final tail = '${entry.sustain ? '→' : ''}${'-' * entry.len}';
-    final isRest = entry.basses.every((c) => c < 0);
-    final String text;
-    if (labels.length == 1) {
-      text = '${labels.first}$tail';
-    } else if (entry.run) {
-      text = '{${labels.join(' ')}}$tail';
-    } else {
-      text = '[${labels.join(' ')}]$tail';
+  Widget _buildBassRow(
+      int n, List<double> widths, List<double> xs, double totalW) {
+    if (state.bassSeq.isEmpty) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Text(state.tr.bassNoteHint,
+            style: mono(size: 11, color: Palette.muted)),
+      );
     }
+    if (n == 0) {
+      // Appunti senza melodia (dati vecchi): fila semplice.
+      return ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          for (var j = 0; j < state.bassSeq.length; j++)
+            Padding(
+              padding: const EdgeInsets.only(right: 6, top: 5),
+              child: _bassChip(j),
+            ),
+        ],
+      );
+    }
+    final children = <Widget>[];
+    // Intervallo in corso di selezione: guida leggera sotto le voci scelte.
+    if (state.bassMode && state.hasBassRange) {
+      final s = state.bassSelStart!.clamp(0, n - 1);
+      final e = state.bassSelEnd!.clamp(s, n - 1);
+      final left = xs[s];
+      final w = xs[e] + widths[e] - left;
+      children.add(Positioned(
+        left: left,
+        top: 0,
+        width: w,
+        height: 40,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Palette.bassRed.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+                color: Palette.bassRed.withValues(alpha: 0.35), width: 1),
+          ),
+        ),
+      ));
+    }
+    for (var j = 0; j < state.bassSeq.length; j++) {
+      final a = state.bassSeq[j];
+      final s = a.anchorStart.clamp(0, n - 1);
+      final e = (a.anchorEnd - 1).clamp(s, n - 1);
+      final left = xs[s];
+      final w = xs[e] + widths[e] - left;
+      final selected = state.bassMode && state.selectedBass == j;
+      // Linea di copertura: da dove a dove vale l'appunto.
+      children.add(Positioned(
+        left: left,
+        top: 0,
+        width: w,
+        height: 3,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Palette.bassRed.withValues(alpha: selected ? 0.95 : 0.55),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ));
+      // Chip centrato sull'intervallo coperto.
+      children.add(Positioned(
+        left: left,
+        top: 6,
+        width: w,
+        height: 30,
+        child: Center(
+          child: OverflowBox(
+            maxWidth: double.infinity,
+            child: _bassChip(j, selected: selected),
+          ),
+        ),
+      ));
+    }
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(
+        dragDevices: PointerDeviceKind.values.toSet(),
+        scrollbars: false,
+      ),
+      child: SingleChildScrollView(
+        controller: _bassCtrl,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: totalW < 1 ? 1 : totalW,
+          height: 40,
+          child: Stack(clipBehavior: Clip.none, children: children),
+        ),
+      ),
+    );
+  }
+
+  Widget _bassChip(int j, {bool selected = false}) {
+    final entry = state.bassSeq[j];
+    final text = entry.basses
+        .map((c) => bassLabel(c, italian: state.italian))
+        .join(' ');
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        state.selectBassEntry(j);
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: isPlaying
-              ? Palette.brass.withValues(alpha: 0.30)
-              : (isTarget
-                  ? Palette.brassDeep.withValues(alpha: 0.35)
-                  : Palette.blackMid),
+          color: selected
+              ? Palette.bassRedDim.withValues(alpha: 0.55)
+              : Palette.blackMid,
           borderRadius: BorderRadius.circular(7),
           border: Border.all(
-            color: isPlaying || isTarget ? Palette.brass : Palette.line,
-            width: isPlaying || isTarget ? 2 : 1,
+            color: selected
+                ? Palette.bassRed
+                : Palette.bassRed.withValues(alpha: 0.55),
+            width: selected ? 2 : 1,
           ),
         ),
         child: Text(text,
             style: mono(
-                size: 13,
-                weight: FontWeight.w700,
-                color: isRest ? Palette.muted : Palette.ivory)),
+                size: 13, weight: FontWeight.w700, color: Palette.bassRed)),
       ),
     );
   }
@@ -312,6 +499,9 @@ class _EntryChip extends StatefulWidget {
   final bool isPlaying;
   final bool chordMode;
   final bool runMode;
+
+  /// In modalità bassi: la voce fa parte dell'intervallo selezionato.
+  final bool inBassRange;
   final int? focusMidi;
   final VoidCallback onTapChip;
   final ValueChanged<int> onTapNote;
@@ -323,6 +513,7 @@ class _EntryChip extends StatefulWidget {
     required this.isPlaying,
     required this.chordMode,
     required this.runMode,
+    required this.inBassRange,
     required this.focusMidi,
     required this.onTapChip,
     required this.onTapNote,
@@ -540,23 +731,31 @@ class _EntryChipState extends State<_EntryChip> {
     }
 
     // Bersaglio: bordo pieno (normale) o tratteggiato quando è attiva una
-    // modalità di impilamento (accordo o abbellimento).
+    // modalità di impilamento (accordo o abbellimento). In modalità bassi
+    // le voci dell'intervallo scelto si tingono di rosso.
     final dashed = isTarget && (chordMode || runMode);
+    final inRange = widget.inBassRange;
     final child = Container(
       constraints: const BoxConstraints(minWidth: 44),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: isPlaying
             ? Palette.brass.withValues(alpha: 0.30)
-            : (isTarget ? Palette.brassDeep.withValues(alpha: 0.35) : Palette.bg),
+            : (inRange
+                ? Palette.bassRed.withValues(alpha: 0.14)
+                : (isTarget
+                    ? Palette.brassDeep.withValues(alpha: 0.35)
+                    : Palette.bg)),
         borderRadius: BorderRadius.circular(8),
         border: dashed
             ? null
             : Border.all(
                 color: isPlaying
                     ? Palette.brass
-                    : (isTarget ? Palette.brass : Palette.line),
-                width: (isTarget || isPlaying) ? 2 : 1,
+                    : (inRange
+                        ? Palette.bassRed
+                        : (isTarget ? Palette.brass : Palette.line)),
+                width: (isTarget || isPlaying || inRange) ? 2 : 1,
               ),
       ),
       alignment: Alignment.center,
