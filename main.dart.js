@@ -95284,9 +95284,8 @@ if(s!=null&&s>=0&&s<r)return s
 return r-1},
 gIf(){var s=this.gWm()
 return s==null?null:this.c[s]},
-gE6(){var s=this,r=s.db,q=!1
-if(s.cy)if(r!=null)q=r<s.b.length
-if(q)return s.b[r]
+gE6(){var s=this,r=s.db
+if(s.cy&&r!=null&&r>=0&&r<s.b.length)return s.b[r]
 return s.ghl()},
 gatP(){if(this.cy)return null
 var s=this.ghl()
@@ -95397,14 +95396,17 @@ case 3:if(!(j<=k)){s=5
 break}if(o!==p.dx){s=1
 break}i=m[j]
 if(i.f!=null||i.r.length!==0){s=4
-break}s=6
+break}p.db=j
+p.a6()
+s=6
 return B.E(p.oo(i),$async$qE)
 case 6:s=7
 return B.E(B.hu(new B.aH(1000*A.q.aB(240/p.fr)),null,n),$async$qE)
 case 7:case 4:++j
 s=3
 break
-case 5:case 1:return B.G(q,r)}})
+case 5:if(o===p.dx){p.db=null
+p.a6()}case 1:return B.G(q,r)}})
 return B.H($async$qE,r)},
 a20(a,b){var s,r,q,p,o,n,m,l=this,k=l.b,j=k.length
 if(j!==0)s=!(l.e!=null&&l.f!=null)
